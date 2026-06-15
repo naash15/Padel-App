@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Padel Season 2 Hub</title>
+    
+    <!-- FIREBASE IMPORT SCRIPTS -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+
+        // =====================================================================
+        // YOUR FIREBASE CONFIGURATION
+        // =====================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyB4zPzxFU7fcz7JCUrWJVTf6uk7UQYdmoQ",
+            authDomain: "padel-tournament-9f1b6.firebaseapp.com",
+            databaseURL: "https://padel-tournament-9f1b6-default-rtdb.firebaseio.com",
+            projectId: "padel-tournament-9f1b6",
+            storageBucket: "padel-tournament-9f1b6.firebasestorage.app",
+            messagingSenderId: "479440834494",
+            appId: "1:479440834494:web:f5c42ee88b93c2858173ef"
+        };
+        // =====================================================================
+
+        // Initialize App, Database, and Auth
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // --- PUBLIC LEADERBOARD LOGIC ---
+        async function loadLeaderboard() {
+            const leaderboardList = document.getElementById("leaderboard-list");
+            leaderboardList.innerHTML = "<li>Loading live data...</li>";
+            
+            try {
+                const querySnapshot = await getDocs(collection(db, "players"));
+                let html = "";
+                
+                // Fetch players and sort by total score
+                let playersData = [];
+                querySnapshot.forEach((doc) => {
+                    playersData.push({ id: doc.id, ...doc.data() });
+                });
+                
+                playersData.sort((a, b) => b.totalScore - a.totalScore);
+
+                playersData.forEach((p) => {
+                    html += `
+                    <div class="player-card">
+                        <strong>${p.id}</strong>
+                        <span>Total Score: <b>${p.totalScore || 0}</b></span>
+                        <div class="stats-row">
+                            <small>Raw Pts: ${p.rawPoints || 0}</small> | 
+                            <small>Bonus: ${p.bonusPoints || 0}</small> | 
+                            <small>Matches: ${p.attendance || 0}</small>
+                        </div>
+                    </div>`;
+                });
+                
+                if(html === "") html = "<p>No player data found yet.</p>";
+                leaderboardList.innerHTML = html;
+            } catch (error) {
+                leaderboardList.innerHTML = `<li>Error loading data: ${error.message}. Make sure your Firestore rules allow reading!</li>`;
+            }
+        }
+
+        // --- ADMIN AUTH LOGIC ---
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById("admin-panel").style.display = "block";
+                document.getElementById("login-section").style.display = "none";
+                document.getElementById("admin-status").innerText = `Logged in as: ${user.email}`;
+            } else {
+                document.getElementById("admin-panel").style.display = "none";
+                document.getElementById("login-section").style.display = "block";
+            }
+        });
+
+        window.loginAdmin = () => {
+            const email = document.getElementById("email").value;
+            const pass = document.getElementById("password").value;
+            signInWithEmailAndPassword(auth, email, pass)
+                .then(() => alert("Master Admin Access Granted"))
+                .catch((error) => alert("Login Failed: " + error.message));
+        };
+
+        window.logoutAdmin = () => {
+            signOut(auth).then(() => alert("Logged out successfully."));
+        };
+
+        // Run when page loads
+        window.onload = loadLeaderboard;
+    </script>
+
+    <!-- STYLING TO MAKE IT LOOK LIKE AN APP -->
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 20px; 
+            background: #f0f2f5; 
+            color: #1c1e21;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .card { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 12px; 
+            margin-bottom: 20px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+        }
+        h1 { color: #18bc9c; margin-top: 0; font-size: 24px; text-align: center; }
+        h2 { font-size: 18px; color: #34495e; border-bottom: 2px solid #ecf0f1; padding-bottom: 8px;}
+        
+        .player-card {
+            background: #f8f9fa;
+            border-left: 5px solid #18bc9c;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+        }
+        .player-card strong { font-size: 18px; color: #2c3e50; }
+        .stats-row { margin-top: 5px; color: #7f8c8d; }
+
+        input { 
+            width: 100%; 
+            padding: 10px; 
+            margin-bottom: 10px; 
+            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            box-sizing: border-box;
+        }
+        button { 
+            background: #2c3e50; 
+            color: white; 
+            border: none; 
+            padding: 12px; 
+            width: 100%; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        button:hover { background: #34495e; }
+        .logout-btn { background: #e74c3c; }
+        .logout-btn:hover { background: #c0392b; }
+        
+        #admin-panel { display: none; border-top: 5px solid #e74c3c; }
+        .hidden-label { font-size: 12px; color: #95a5a6; text-align: center; display: block; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <!-- PUBLIC VIEW: THE LEADERBOARD -->
+    <div class="card">
+        <h1>🏆 Season 2 Leaderboard</h1>
+        <div id="leaderboard-list">
+            <!-- Data from Firestore loads here -->
+        </div>
+    </div>
+
+    <!-- ADMIN LOGIN (At the bottom of the page) -->
+    <div class="card" id="login-section">
+        <h2>Admin Access</h2>
+        <input type="email" id="email" placeholder="Admin Email (e.g. admin@padel.com)">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="loginAdmin()">Unlock Dashboard</button>
+    </div>
+
+    <!-- HIDDEN ADMIN DASHBOARD -->
+    <div class="card" id="admin-panel">
+        <h1 style="color: #e74c3c;">⚙️ Race Master Dashboard</h1>
+        <p id="admin-status" style="text-align: center; font-size: 14px; font-weight: bold;"></p>
+        
+        <h2>1. Match Management</h2>
+        <button>Generate Fixture Matrix</button>
+        <button>Enter Confirmed Scores</button>
+        
+        <h2>2. Roster Management</h2>
+        <button>Toggle Free Agents</button>
+        <button>Assign Stand-In/Ghost Player</button>
+
+        <hr style="border: 1px solid #eee; margin: 20px 0;">
+        <button class="logout-btn" onclick="logoutAdmin()">Lock Dashboard (Log Out)</button>
+    </div>
+
+    <span class="hidden-label">Padel Live Tracking System</span>
+
+</body>
+</html>
