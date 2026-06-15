@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Padel Season 2 Hub</title>
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, writeBatch, increment } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch, increment } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
 
         // =====================================================================
@@ -23,7 +24,6 @@
             messagingSenderId: "479440834494",
             appId: "1:479440834494:web:f5c42ee88b93c2858173ef"
         };
-        // =====================================================================
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -33,28 +33,42 @@
         let globalMatchesData = [];
         let activeTeamsList = []; 
 
+        // --- CORE DATA LOADING ---
         window.loadAllData = async () => {
-            const pSnapshot = await getDocs(collection(db, "players"));
-            globalPlayersData = [];
-            let totalLeaguePoints = 0;
-            pSnapshot.forEach((doc) => {
-                const data = { id: doc.id, ...doc.data() };
-                globalPlayersData.push(data);
-                totalLeaguePoints += (data.rawPoints || 0);
-            });
+            document.getElementById("leaderboard-list").innerHTML = "<p style='text-align:center;'>Loading live data...</p>";
             
-            document.getElementById("stat-players").innerText = globalPlayersData.length;
-            document.getElementById("stat-points").innerText = totalLeaguePoints;
+            try {
+                // 1. Fetch Players
+                const pSnapshot = await getDocs(collection(db, "players"));
+                globalPlayersData = [];
+                let totalLeaguePoints = 0;
+                
+                pSnapshot.forEach((doc) => {
+                    const data = { id: doc.id, ...doc.data() };
+                    globalPlayersData.push(data);
+                    totalLeaguePoints += (data.rawPoints || 0);
+                });
+                
+                document.getElementById("stat-players").innerText = globalPlayersData.length;
+                document.getElementById("stat-points").innerText = totalLeaguePoints;
 
-            const mSnapshot = await getDocs(collection(db, "matches"));
-            globalMatchesData = [];
-            mSnapshot.forEach((doc) => { globalMatchesData.push({ id: doc.id, ...doc.data() }); });
+                // 2. Fetch Matches
+                const mSnapshot = await getDocs(collection(db, "matches"));
+                globalMatchesData = [];
+                mSnapshot.forEach((doc) => {
+                    globalMatchesData.push({ id: doc.id, ...doc.data() });
+                });
 
-            renderLeaderboard();
-            renderMatches();
-            populateAdminDropdowns();
+                renderLeaderboard();
+                renderMatches();
+                populateAdminDropdowns();
+
+            } catch (error) {
+                console.error("Error loading data:", error);
+            }
         };
 
+        // --- RENDER LEADERBOARD & ROSTERS ---
         function renderLeaderboard() {
             let html = "";
             let activeTeams = [];
@@ -67,152 +81,484 @@
             globalPlayersData.forEach((p) => {
                 html += `
                 <div class="player-card" onclick="openPlayerModal('${p.id}')">
-                    <div class="player-header"><strong>${p.id}</strong><span class="total-score">${p.totalScore || 0} Pts</span></div>
-                    <div class="stats-row"><span>Raw: ${p.rawPoints || 0}</span> | <span>Bonus: ${p.bonusPoints || 0}</span> | <span>Att: ${p.attendance || 0}</span></div>
+                    <div class="player-header">
+                        <strong>${p.id}</strong>
+                        <span class="total-score">${p.totalScore || 0} Pts</span>
+                    </div>
+                    <div class="stats-row">
+                        <span>Raw: ${p.rawPoints || 0}</span> | 
+                        <span>Bonus: ${p.bonusPoints || 0}</span> | 
+                        <span>Att: ${p.attendance || 0}</span>
+                    </div>
                 </div>`;
 
-                if (p.isFreeAgent) freeAgents.push(p.id);
-                else if (p.currentPartner && !processedPairs.has(p.id)) {
-                    activeTeams.push(`${p.id} & ${p.currentPartner}`);
-                    activeTeamsList.push({ p1: p.id, p2: p.currentPartner, name: `${p.id} & ${p.currentPartner}` });
-                    processedPairs.add(p.id); processedPairs.add(p.currentPartner);
+                if (p.isFreeAgent) {
+                    freeAgents.push(p.id);
+                } else if (p.currentPartner && !processedPairs.has(p.id)) {
+                    const teamStr = `${p.id} & ${p.currentPartner}`;
+                    activeTeams.push(teamStr);
+                    activeTeamsList.push({ p1: p.id, p2: p.currentPartner, name: teamStr });
+                    processedPairs.add(p.id);
+                    processedPairs.add(p.currentPartner);
                 }
             });
             
-            document.getElementById("live-teams").innerHTML = activeTeams.length > 0 ? activeTeams.map(t => `<div class="team-tag">${t}</div>`).join('') : "<p style='color:#aaa; font-size: 13px;'>No teams generated yet.</p>";
-            document.getElementById("live-free-agents").innerHTML = freeAgents.length > 0 ? freeAgents.map(fa => `<div class="fa-tag">${fa}</div>`).join('') : "<p style='color:#aaa; font-size: 13px;'>None currently.</p>";
-            document.getElementById("leaderboard-list").innerHTML = html;
+            document.getElementById("live-teams").innerHTML = activeTeams.length > 0 
+                ? activeTeams.map(t => `<div class="team-tag">${t}</div>`).join('') 
+                : "<p style='color:#aaa; font-size: 13px;'>No teams generated yet.</p>";
+            
+            document.getElementById("live-free-agents").innerHTML = freeAgents.length > 0 
+                ? freeAgents.map(fa => `<div class="fa-tag">${fa}</div>`).join('') 
+                : "<p style='color:#aaa; font-size: 13px;'>None currently.</p>";
+
+            document.getElementById("leaderboard-list").innerHTML = html || "<p style='text-align:center; color:#aaa;'>No data.</p>";
         }
+
+        // --- RENDER FIXTURES & RESULTS ---
+        function renderMatches() {
+            let fixturesHtml = "";
+            let resultsHtml = "";
+            let approvalsHtml = "";
+
+            globalMatchesData.forEach(m => {
+                const teamAStr = m.teamA.join(" & ");
+                const teamBStr = m.teamB.join(" & ");
+                
+                if (m.status === "pending") {
+                    fixturesHtml += `
+                    <div class="match-card">
+                        <div style="text-align:center; margin-bottom:10px;"><b>${teamAStr}</b> <br><span style="color:#f39c12; font-size:12px;">VS</span><br> <b>${teamBStr}</b></div>
+                        <button class="action-btn" onclick="userSubmitScore('${m.id}', '${teamAStr}', '${teamBStr}')">Input Score</button>
+                    </div>`;
+                } else if (m.status === "played") {
+                    fixturesHtml += `
+                    <div class="match-card" style="border-left: 4px solid #f39c12;">
+                        <div style="text-align:center;"><b>${teamAStr}</b> (${m.scoreA}) <br><span style="color:#f39c12; font-size:12px;">VS</span><br> <b>${teamBStr}</b> (${m.scoreB})</div>
+                        <p style="text-align:center; color:#f39c12; font-size:12px; margin: 10px 0 0 0;">Under Admin Review ⏳</p>
+                    </div>`;
+                    
+                    approvalsHtml += `
+                    <div class="match-card" style="border-left: 4px solid #f39c12;">
+                        <p style="margin:0 0 10px 0; font-size:14px;"><b>${teamAStr}</b> (${m.scoreA}) vs <b>${teamBStr}</b> (${m.scoreB})</p>
+                        <button style="background:#27ae60; color:white; padding:8px;" onclick="approveScore('${m.id}')">Approve & Update Profiles</button>
+                        <button style="background:#e74c3c; color:white; padding:8px;" onclick="rejectScore('${m.id}')">Reject (Reset)</button>
+                    </div>`;
+                } else if (m.status === "confirmed") {
+                    resultsHtml += `
+                    <div class="match-card" style="border-left: 4px solid #18bc9c;">
+                        <div style="text-align:center; font-size:15px;">
+                            <b>${teamAStr}</b> <span style="color:#18bc9c; font-size:18px; font-weight:bold;">${m.scoreA}</span> - <span style="color:#18bc9c; font-size:18px; font-weight:bold;">${m.scoreB}</span> <b>${teamBStr}</b>
+                        </div>
+                    </div>`;
+                }
+            });
+
+            document.getElementById("fixtures-list").innerHTML = fixturesHtml || "<p style='text-align:center; color:#aaa;'>No active fixtures.</p>";
+            document.getElementById("results-list").innerHTML = resultsHtml || "<p style='text-align:center; color:#aaa;'>No results yet.</p>";
+            
+            const approvalSection = document.getElementById("admin-approvals");
+            if (approvalsHtml) {
+                approvalSection.innerHTML = approvalsHtml;
+                approvalSection.style.display = "block";
+            } else {
+                approvalSection.style.display = "none";
+            }
+        }
+
+        // --- TAB SWITCHING ---
+        window.switchTab = (tabId) => {
+            document.getElementById("tab-leaderboard").style.display = "none";
+            document.getElementById("tab-fixtures").style.display = "none";
+            document.getElementById("tab-results").style.display = "none";
+            document.getElementById("btn-leaderboard").classList.remove("active-tab");
+            document.getElementById("btn-fixtures").classList.remove("active-tab");
+            document.getElementById("btn-results").classList.remove("active-tab");
+
+            document.getElementById(`tab-${tabId}`).style.display = "block";
+            document.getElementById(`btn-${tabId}`).classList.add("active-tab");
+        };
+
+        // --- USER SCORE INPUT ---
+        window.userSubmitScore = async (matchId, teamA, teamB) => {
+            const scoreA = prompt(`Enter RAW points scored by ${teamA}:`);
+            if(scoreA === null || scoreA === "") return;
+            const scoreB = prompt(`Enter RAW points scored by ${teamB}:`);
+            if(scoreB === null || scoreB === "") return;
+
+            try {
+                await updateDoc(doc(db, "matches", matchId), {
+                    scoreA: parseInt(scoreA),
+                    scoreB: parseInt(scoreB),
+                    status: "played"
+                });
+                alert("Score submitted! Waiting for Admin confirmation.");
+                loadAllData();
+            } catch (error) { alert("Error: " + error.message); }
+        };
+
+        // --- ADMIN SCORE APPROVAL ---
+        window.approveScore = async (matchId) => {
+            const match = globalMatchesData.find(m => m.id === matchId);
+            if(!match) return;
+
+            let bonusA = 0, bonusB = 0;
+            if (match.scoreA > match.scoreB) bonusA += 2;
+            else if (match.scoreB > match.scoreA) bonusB += 2;
+            else { bonusA += 1; bonusB += 1; }
+
+            if (match.scoreA > 0 && match.scoreB === 0) bonusA += 1;
+            if (match.scoreB > 0 && match.scoreA === 0) bonusB += 1;
+
+            try {
+                const batch = writeBatch(db);
+                
+                match.teamA.forEach(playerId => {
+                    batch.update(doc(db, "players", playerId), {
+                        rawPoints: increment(match.scoreA), bonusPoints: increment(bonusA), attendance: increment(1), totalScore: increment(match.scoreA + bonusA + 1)
+                    });
+                });
+
+                match.teamB.forEach(playerId => {
+                    batch.update(doc(db, "players", playerId), {
+                        rawPoints: increment(match.scoreB), bonusPoints: increment(bonusB), attendance: increment(1), totalScore: increment(match.scoreB + bonusB + 1)
+                    });
+                });
+
+                batch.update(doc(db, "matches", matchId), { status: "confirmed" });
+                await batch.commit();
+                alert("Score Approved & Leaderboard Updated!");
+                loadAllData();
+            } catch (error) { alert("Error: " + error.message); }
+        };
+
+        window.rejectScore = async (matchId) => {
+            if(!confirm("Reject this score and reset it to a fixture?")) return;
+            try {
+                await updateDoc(doc(db, "matches", matchId), { scoreA: 0, scoreB: 0, status: "pending" });
+                loadAllData();
+            } catch (error) { alert("Error: " + error.message); }
+        };
+
+        // --- NEW: ADD PLAYER DYNAMICALLY ---
+        window.addNewPlayer = async () => {
+            const nameInput = document.getElementById("new-player-name").value.trim();
+            if(!nameInput) return alert("Please enter a player name.");
+            
+            // Check for duplicates
+            if(globalPlayersData.find(p => p.id.toLowerCase() === nameInput.toLowerCase())) {
+                return alert("A player with this name already exists.");
+            }
+
+            try {
+                await setDoc(doc(db, "players", nameInput), {
+                    rawPoints: 0, bonusPoints: 0, attendance: 0, totalScore: 0,
+                    history: [], partners: [], currentPartner: null, isFreeAgent: false
+                });
+                alert(`${nameInput} successfully added to the database!`);
+                document.getElementById("new-player-name").value = "";
+                loadAllData();
+            } catch (error) { alert("Error: " + error.message); }
+        };
 
         function populateAdminDropdowns() {
             let pOptions = '<option value="">-- Select Player --</option>';
-            [...globalPlayersData].sort((a,b) => a.id.localeCompare(b.id)).forEach(p => pOptions += `<option value="${p.id}">${p.id}</option>`);
+            // Sort names alphabetically for the dropdowns
+            let sortedPlayers = [...globalPlayersData].sort((a,b) => a.id.localeCompare(b.id));
+            sortedPlayers.forEach(p => pOptions += `<option value="${p.id}">${p.id}</option>`);
+            
             document.getElementById('team-p1').innerHTML = pOptions;
             document.getElementById('team-p2').innerHTML = pOptions;
             document.getElementById('fa-player').innerHTML = pOptions;
 
-            let tOptions = '<option value="">-- Select A Team --</option>';
-            activeTeamsList.forEach((t, index) => { tOptions += `<option value="${index}">${t.name}</option>`; });
+            let tOptions = '<option value="">-- Select A Live Team --</option>';
+            activeTeamsList.forEach((t, index) => {
+                tOptions += `<option value="${index}">${t.name}</option>`;
+            });
             document.getElementById('fix-teamA').innerHTML = tOptions;
             document.getElementById('fix-teamB').innerHTML = tOptions;
         }
 
-        window.addNewPlayer = async () => {
-            const nameInput = document.getElementById("new-player-name").value.trim();
-            if(!nameInput) return;
-            await setDoc(doc(db, "players", nameInput), { rawPoints: 0, bonusPoints: 0, attendance: 0, totalScore: 0, history: [0], partners: [], currentPartner: null, isFreeAgent: false });
-            alert("Player added!");
-            document.getElementById("new-player-name").value = "";
-            loadAllData();
-        };
-
-        // --- MATCH & APPROVAL LOGIC ---
-        function renderMatches() {
-            let fixturesHtml = "", resultsHtml = "", approvalsHtml = "";
-            globalMatchesData.forEach(m => {
-                const teamAStr = m.teamA.join(" & "), teamBStr = m.teamB.join(" & ");
-                if (m.status === "pending") {
-                    fixturesHtml += `<div class="match-card"><b>${teamAStr}</b> vs <b>${teamBStr}</b><br><button onclick="userSubmitScore('${m.id}', '${teamAStr}', '${teamBStr}')">Input Score</button></div>`;
-                } else if (m.status === "played") {
-                    approvalsHtml += `<div class="match-card"><b>${teamAStr}</b> (${m.scoreA}) vs <b>${teamBStr}</b> (${m.scoreB})<br><button onclick="approveScore('${m.id}')">Approve</button></div>`;
-                } else if (m.status === "confirmed") {
-                    resultsHtml += `<div class="match-card"><b>${teamAStr}</b> ${m.scoreA} - ${m.scoreB} <b>${teamBStr}</b></div>`;
-                }
-            });
-            document.getElementById("fixtures-list").innerHTML = fixturesHtml || "No active fixtures.";
-            document.getElementById("results-list").innerHTML = resultsHtml || "No results.";
-            document.getElementById("admin-approvals").innerHTML = approvalsHtml || "No pending matches.";
-        }
-
-        window.approveScore = async (matchId) => {
-            const match = globalMatchesData.find(m => m.id === matchId);
-            const batch = writeBatch(db);
-            match.teamA.forEach(p => batch.update(doc(db, "players", p), { rawPoints: increment(match.scoreA), totalScore: increment(match.scoreA + 2), attendance: increment(1) }));
-            match.teamB.forEach(p => batch.update(doc(db, "players", p), { rawPoints: increment(match.scoreB), totalScore: increment(match.scoreB + 0), attendance: increment(1) }));
-            batch.update(doc(db, "matches", matchId), { status: "confirmed" });
-            await batch.commit(); loadAllData();
-        };
-
-        window.userSubmitScore = async (matchId, teamA, teamB) => {
-            const scoreA = prompt(`Points for ${teamA}:`);
-            const scoreB = prompt(`Points for ${teamB}:`);
-            await updateDoc(doc(db, "matches", matchId), { scoreA: parseInt(scoreA), scoreB: parseInt(scoreB), status: "played" });
-            loadAllData();
-        };
-
-        // --- FIXTURES & UTILS ---
         window.createFixture = async () => {
-            const tA = activeTeamsList[document.getElementById('fix-teamA').value];
-            const tB = activeTeamsList[document.getElementById('fix-teamB').value];
-            await setDoc(doc(db, "matches", `match_${Date.now()}`), { teamA: [tA.p1, tA.p2], teamB: [tB.p1, tB.p2], scoreA:0, scoreB:0, status: "pending" });
-            loadAllData();
+            const idxA = document.getElementById('fix-teamA').value;
+            const idxB = document.getElementById('fix-teamB').value;
+            if(idxA === "" || idxB === "") return alert("Select two teams.");
+            if(idxA === idxB) return alert("A team cannot play itself!");
+
+            const teamA = activeTeamsList[idxA];
+            const teamB = activeTeamsList[idxB];
+            const matchId = `match_${Date.now()}`;
+
+            try {
+                await setDoc(doc(db, "matches", matchId), {
+                    teamA: [teamA.p1, teamA.p2],
+                    teamB: [teamB.p1, teamB.p2],
+                    scoreA: 0,
+                    scoreB: 0,
+                    status: "pending"
+                });
+                alert("Fixture created and is now live!");
+                loadAllData();
+            } catch (error) { alert("Error: " + error.message); }
         };
 
+        window.clearMatchesByStatus = async (status) => {
+            if(!confirm(`Are you sure you want to delete all ${status} matches?`)) return;
+            try {
+                const batch = writeBatch(db);
+                globalMatchesData.filter(m => m.status === status).forEach(m => {
+                    batch.delete(doc(db, "matches", m.id));
+                });
+                await batch.commit();
+                alert(`All ${status} matches cleared.`);
+                loadAllData();
+            } catch (error) { alert("Error: " + error.message); }
+        };
+
+        // --- MODAL AND AUTH ---
         window.openPlayerModal = (playerId) => {
-            const p = globalPlayersData.find(p => p.id === playerId);
-            document.getElementById("modal-name").innerText = p.id;
+            const player = globalPlayersData.find(p => p.id === playerId);
+            if(!player) return;
+            document.getElementById("modal-name").innerText = player.id + "'s Profile";
+            const partners = player.partners && player.partners.length > 0 ? player.partners.join(", ") : "None yet";
+            document.getElementById("modal-partners").innerHTML = `<b>Past Partners:</b> ${partners}`;
             document.getElementById("player-modal").style.display = "block";
-            const ctx = document.getElementById('playerChart').getContext('2d');
-            if(window.chart) window.chart.destroy();
-            window.chart = new Chart(ctx, { type: 'line', data: { labels: ['Start', 'GW1'], datasets: [{ label: 'Score', data: [0, p.totalScore], borderColor: '#18bc9c' }] } });
         };
         window.closeModal = () => document.getElementById("player-modal").style.display = "none";
 
-        window.switchTab = (tab) => {
-            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-            document.getElementById('tab-'+tab).style.display = 'block';
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById("admin-panel").style.display = "block";
+                document.getElementById("login-section").style.display = "none";
+            } else {
+                document.getElementById("admin-panel").style.display = "none";
+                document.getElementById("login-section").style.display = "block";
+            }
+        });
+        window.loginAdmin = () => {
+            signInWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("password").value)
+                .catch((error) => alert("Login Failed: " + error.message));
+        };
+        window.logoutAdmin = () => signOut(auth);
+
+        window.pairPlayers = async () => {
+            const p1 = document.getElementById('team-p1').value, p2 = document.getElementById('team-p2').value;
+            if(!p1 || !p2 || p1===p2) return alert("Invalid pair.");
+            try {
+                const batch = writeBatch(db);
+                batch.update(doc(db, "players", p1), { currentPartner: p2, isFreeAgent: false });
+                batch.update(doc(db, "players", p2), { currentPartner: p1, isFreeAgent: false });
+                await batch.commit(); loadAllData();
+            } catch(e){}
+        };
+        window.makeFreeAgent = async () => {
+            const p = document.getElementById('fa-player').value;
+            if(!p) return;
+            try { await updateDoc(doc(db, "players", p), { currentPartner: null, isFreeAgent: true }); loadAllData(); } catch(e){}
+        };
+        window.clearGameweekRoster = async () => {
+            const batch = writeBatch(db);
+            globalPlayersData.forEach(p => batch.update(doc(db, "players", p.id), { currentPartner: null, isFreeAgent: false }));
+            await batch.commit(); loadAllData();
         };
 
-        window.onload = () => { loadAllData(); switchTab('leaderboard'); };
+        // --- NEW: INJECT FULL GW1 DATA (INCLUDING MATCHES AND JODIE) ---
+        window.loadHistoricalData = async () => {
+            const button = document.getElementById("load-data-btn");
+            button.innerText = "Injecting Profiles & Matches...";
+            
+            // Includes Jodie as Luke's partner
+            const gw1Data = [
+                { id: "Luke", raw: 81, bonus: 8, att: 1, total: 90, partners: ["Jodie"], history: [90] },
+                { id: "Jodie", raw: 0, bonus: 0, att: 0, total: 0, partners: ["Luke"], history: [0] },
+                { id: "Figo", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Ezra"], history: [86] },
+                { id: "Ezra", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Figo"], history: [86] },
+                { id: "Naashid", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Matthew"], history: [75] },
+                { id: "Matthew", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Naashid"], history: [75] },
+                { id: "Jason", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Leigh"], history: [70] },
+                { id: "Leigh", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Jason"], history: [70] },
+                { id: "Simone", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Charlie"], history: [62] },
+                { id: "Charlie", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Simone"], history: [62] },
+                { id: "Kyle", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Sky"], history: [59] },
+                { id: "Sky", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Kyle"], history: [59] },
+                { id: "Brady", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Aneeqah"], history: [57] },
+                { id: "Aneeqah", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Brady"], history: [57] }
+            ];
+
+            const gw1Matches = [
+                { id: "gw1_m1", teamA: ["Figo", "Ezra"], teamB: ["Naashid", "Matthew"], scoreA: 21, scoreB: 17, status: "confirmed" },
+                { id: "gw1_m2", teamA: ["Brady", "Aneeqah"], teamB: ["Simone", "Charlie"], scoreA: 18, scoreB: 15, status: "confirmed" },
+                { id: "gw1_m3", teamA: ["Luke", "Jodie"], teamB: ["Kyle", "Sky"], scoreA: 26, scoreB: 9, status: "confirmed" },
+                { id: "gw1_m4", teamA: ["Jason", "Leigh"], teamB: ["Brady", "Aneeqah"], scoreA: 20, scoreB: 15, status: "confirmed" },
+                { id: "gw1_m5", teamA: ["Naashid", "Matthew"], teamB: ["Jason", "Leigh"], scoreA: 23, scoreB: 16, status: "confirmed" },
+                { id: "gw1_m6", teamA: ["Figo", "Ezra"], teamB: ["Simone", "Charlie"], scoreA: 26, scoreB: 5, status: "confirmed" },
+                { id: "gw1_m7", teamA: ["Luke", "Jodie"], teamB: ["Figo", "Ezra"], scoreA: 22, scoreB: 15, status: "confirmed" },
+                { id: "gw1_m8", teamA: ["Simone", "Charlie"], teamB: ["Kyle", "Sky"], scoreA: 20, scoreB: 17, status: "confirmed" },
+                { id: "gw1_m9", teamA: ["Luke", "Jodie"], teamB: ["Brady", "Aneeqah"], scoreA: 17, scoreB: 7, status: "confirmed" },
+                { id: "gw1_m10", teamA: ["Kyle", "Sky"], teamB: ["Jason", "Leigh"], scoreA: 16, scoreB: 10, status: "confirmed" },
+                { id: "gw1_m11", teamA: ["Luke", "Jodie"], teamB: ["Naashid", "Matthew"], scoreA: 16, scoreB: 10, status: "confirmed" },
+                { id: "gw1_m12", teamA: ["Simone", "Charlie"], teamB: ["Jason", "Leigh"], scoreA: 17, scoreB: 11, status: "confirmed" },
+                { id: "gw1_m13", teamA: ["Naashid", "Matthew"], teamB: ["Kyle", "Sky"], scoreA: 20, scoreB: 14, status: "confirmed" },
+                { id: "gw1_m14", teamA: ["Figo", "Ezra"], teamB: ["Brady", "Aneeqah"], scoreA: 17, scoreB: 14, status: "confirmed" }
+            ];
+
+            try {
+                const batch = writeBatch(db);
+                // Push Players
+                for (const p of gw1Data) {
+                    const playerRef = doc(db, "players", p.id);
+                    batch.set(playerRef, {
+                        rawPoints: p.raw, bonusPoints: p.bonus, attendance: p.att, totalScore: p.total,
+                        partners: p.partners, history: p.history, currentPartner: null, isFreeAgent: false
+                    });
+                }
+                // Push Match Data to Results Tab
+                for (const m of gw1Matches) {
+                    const matchRef = doc(db, "matches", m.id);
+                    batch.set(matchRef, {
+                        teamA: m.teamA, teamB: m.teamB, scoreA: m.scoreA, scoreB: m.scoreB, status: m.status
+                    });
+                }
+                await batch.commit();
+                alert("Gameweek 1 Profiles AND Match Results delivered!");
+                button.innerText = "Push GW1 Data";
+                loadAllData(); 
+            } catch (error) { alert("Error: " + error.message); }
+        };
+
+        window.onload = () => {
+            loadAllData();
+            switchTab('leaderboard'); 
+        };
     </script>
-    
+
     <style>
-        body { font-family: sans-serif; padding: 15px; background: #121212; color: #e0e0e0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; background: #121212; color: #e0e0e0; max-width: 600px; margin: 0 auto; }
         .card { background: #1e1e1e; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #333; }
-        .tab-content { display: none; }
-        .match-card { background: #2c2c2c; padding: 15px; margin-bottom: 10px; border-radius: 6px; }
-        button { background: #18bc9c; border: none; padding: 10px; border-radius: 4px; cursor: pointer; }
+        h1 { color: #18bc9c; margin-top: 0; font-size: 24px; text-align: center; text-transform: uppercase;}
+        h2 { font-size: 16px; color: #18bc9c; border-bottom: 1px solid #333; padding-bottom: 8px; margin-top: 20px;}
+        
+        .tab-container { display: flex; justify-content: space-between; margin-bottom: 15px; background: #1a1a1a; border-radius: 8px; overflow: hidden; border: 1px solid #333;}
+        .tab-btn { flex: 1; text-align: center; padding: 12px 5px; font-size: 13px; font-weight: bold; background: transparent; color: #aaa; border: none; cursor: pointer; transition: 0.3s; margin:0;}
+        .active-tab { background: #18bc9c; color: #121212; }
+
+        .global-stats { display: flex; justify-content: space-around; background: #252525; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed #18bc9c; }
+        .stat-box { text-align: center; }
+        .stat-box span { display: block; font-size: 24px; font-weight: bold; color: #18bc9c; }
+        .stat-box small { color: #aaa; font-size: 12px; text-transform: uppercase; }
+
+        .live-roster-box { background: #181818; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f39c12; }
+        .live-roster-box h3 { margin: 0 0 10px 0; font-size: 14px; color: #f39c12; text-transform: uppercase; }
+        .team-tag { display: inline-block; background: #2c3e50; color: white; padding: 6px 12px; border-radius: 20px; font-size: 13px; margin: 0 5px 8px 0; border: 1px solid #34495e; }
+        .fa-tag { display: inline-block; background: #e74c3c; color: white; padding: 6px 12px; border-radius: 20px; font-size: 13px; margin: 0 5px 8px 0; border: 1px solid #c0392b;}
+
+        .player-card, .match-card { background: #2c2c2c; padding: 15px; margin-bottom: 12px; border-radius: 6px; cursor: pointer; }
+        .player-card { border-left: 5px solid #18bc9c; }
+        .match-card { border: 1px solid #444; }
+        .player-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .player-header strong { font-size: 18px; color: #ffffff; }
+        .total-score { font-size: 18px; font-weight: bold; color: #18bc9c; }
+        .stats-row { color: #aaaaaa; font-size: 13px; display: flex; justify-content: space-between;}
+
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
+        .modal-content { background: #1e1e1e; margin: 20% auto; padding: 20px; border: 1px solid #18bc9c; width: 90%; max-width: 500px; border-radius: 12px; color: white; }
+        .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        
+        select, input { width: 100%; padding: 12px; margin-bottom: 12px; background: #2c2c2c; color: white; border: 1px solid #444; border-radius: 6px; box-sizing: border-box; font-size: 14px;}
+        button { background: #18bc9c; color: #121212; border: none; padding: 12px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; margin-bottom: 10px;}
+        .action-btn { background: #3498db; color: white; margin-top:10px; }
+        .danger-btn { background: #e74c3c; color: white; }
+        .warning-btn { background: #f39c12; color: white; }
+        
+        #admin-panel { display: none; border-top: 4px solid #e74c3c; }
+        #admin-approvals { display:none; background:#2c1b18; padding:15px; border-radius:8px; border:1px solid #e74c3c; margin-bottom:20px; }
     </style>
 </head>
 <body>
-    <div class="tab-container" style="display:flex; justify-content:space-around;">
-        <button onclick="switchTab('leaderboard')">🏆 Standings</button>
-        <button onclick="switchTab('fixtures')">🎾 Fixtures</button>
-        <button onclick="switchTab('results')">📋 Results</button>
+
+    <div class="tab-container">
+        <button id="btn-leaderboard" class="tab-btn" onclick="switchTab('leaderboard')">🏆 Standings</button>
+        <button id="btn-fixtures" class="tab-btn" onclick="switchTab('fixtures')">🎾 Fixtures</button>
+        <button id="btn-results" class="tab-btn" onclick="switchTab('results')">📋 Results</button>
     </div>
 
-    <div id="tab-leaderboard" class="tab-content card">
-        <h1>🏆 Standings</h1>
-        <div class="live-roster-box"><h3>Confirmed Teams</h3><div id="live-teams"></div></div>
+    <div id="tab-leaderboard" class="card">
+        <div class="global-stats">
+            <div class="stat-box"><span id="stat-players">0</span><small>Active</small></div>
+            <div class="stat-box"><span id="stat-points">0</span><small>Raw Pts</small></div>
+        </div>
+
+        <div class="live-roster-box">
+            <h3>🎾 Tonight's Teams</h3>
+            <div id="live-teams">Loading...</div>
+            <h3 style="margin-top: 15px; color:#e74c3c;">🧍‍♂️ Free Agents</h3>
+            <div id="live-free-agents">Loading...</div>
+        </div>
+
+        <p style="text-align: center; color: #aaa; font-size: 12px;">Tap any player to view history</p>
         <div id="leaderboard-list"></div>
     </div>
 
-    <div id="tab-fixtures" class="tab-content card">
-        <h1>🎾 Fixtures</h1>
+    <div id="tab-fixtures" class="card" style="display:none;">
+        <h2 style="margin-top:0;">Live Matches</h2>
+        <p style="font-size:12px; color:#aaa;">Tap "Input Score" when the match finishes.</p>
         <div id="fixtures-list"></div>
     </div>
 
-    <div id="tab-results" class="tab-content card">
-        <h1>📋 Results</h1>
+    <div id="tab-results" class="card" style="display:none;">
+        <h2 style="margin-top:0;">Completed Matches</h2>
         <div id="results-list"></div>
     </div>
 
-    <div id="player-modal" class="modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); padding:50px;">
-        <div style="background:#1e1e1e; padding:20px;">
-            <h2 id="modal-name"></h2>
-            <canvas id="playerChart"></canvas>
-            <button onclick="closeModal()">Close</button>
+    <div id="player-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h2 id="modal-name" style="margin-top: 0; border: none;">Profile</h2>
+            <p id="modal-partners" style="font-size: 14px; color: #ccc;"></p>
         </div>
     </div>
 
-    <div id="admin-panel" class="card">
-        <h1>⚙️ Admin</h1>
-        <div id="admin-approvals"></div>
-        <input type="text" id="new-player-name" placeholder="Player Name">
-        <button onclick="addNewPlayer()">Add Player</button>
+    <div class="card" id="login-section">
+        <h2 style="margin-top: 0;">Admin Access</h2>
+        <input type="email" id="email" placeholder="Admin Email">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="loginAdmin()">Unlock Dashboard</button>
+    </div>
+
+    <div class="card" id="admin-panel">
+        <h1 style="color: #e74c3c; font-size: 20px;">⚙️ Master Dashboard</h1>
+        
+        <div id="admin-approvals">
+            <h3 style="color:#e74c3c; margin-top:0;">🚨 Pending Approvals</h3>
+        </div>
+
+        <h2>1. Player Management</h2>
+        <p style="font-size:12px; color:#aaa; margin-top:0;">Add a new player to the database dropdowns.</p>
+        <input type="text" id="new-player-name" placeholder="Enter new player's name (e.g. John)">
+        <button class="action-btn" style="margin-top:0;" onclick="addNewPlayer()">Add New Player</button>
+
+        <h2>2. Build Tonight's Roster</h2>
+        <select id="team-p1"></select>
+        <select id="team-p2"></select>
+        <button onclick="pairPlayers()">Link Players (Team)</button>
+        <select id="fa-player" style="margin-top:10px;"></select>
+        <button class="warning-btn" onclick="makeFreeAgent()">Set as Free Agent</button>
+
+        <h2>3. Create Live Fixture</h2>
         <select id="fix-teamA"></select>
         <select id="fix-teamB"></select>
-        <button onclick="createFixture()">Create Match</button>
+        <button class="action-btn" onclick="createFixture()">Launch Fixture</button>
+
+        <h2>4. Data Controls & Resets</h2>
+        <button id="load-data-btn" style="background: #27ae60; color: white;" onclick="loadHistoricalData()">Push GW1 Historical Data</button>
+        <button class="warning-btn" onclick="clearGameweekRoster()">Clear Tonight's Roster</button>
+        <button class="danger-btn" onclick="clearMatchesByStatus('pending')">Delete Unplayed Fixtures</button>
+        <button class="danger-btn" onclick="clearMatchesByStatus('confirmed')">Clear Old Results</button>
+
+        <hr style="border: 1px solid #333; margin: 20px 0;">
+        <button class="danger-btn" onclick="logoutAdmin()">Lock Dashboard</button>
     </div>
+
 </body>
 </html>
+
+                    
