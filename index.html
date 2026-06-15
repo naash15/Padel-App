@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+            <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -11,11 +11,11 @@
     <!-- FIREBASE IMPORT SCRIPTS -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch, increment } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
 
         // =====================================================================
-        // YOUR REAL FIREBASE KEYS (FIXED)
+        // YOUR REAL FIREBASE KEYS
         // =====================================================================
         const firebaseConfig = {
             apiKey: "AIzaSyB4zPzxFU7fcz7JCUrWJVTf6uk7UQYdmoQ",
@@ -26,102 +26,299 @@
             messagingSenderId: "479440834494",
             appId: "1:479440834494:web:f5c42ee88b93c2858173ef"
         };
-        // =====================================================================
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
         
-        let globalPlayersData = []; // Store data for the graph modal
+        let globalPlayersData = []; 
+        let globalMatchesData = [];
+        let activeTeamsList = []; 
 
-        // --- PUBLIC LEADERBOARD & GLOBAL STATS ---
-        async function loadLeaderboard() {
-            const leaderboardList = document.getElementById("leaderboard-list");
-            leaderboardList.innerHTML = "<p style='text-align:center;'>Loading live data...</p>";
+        // --- CORE DATA LOADING ---
+        async function loadAllData() {
+            document.getElementById("leaderboard-list").innerHTML = "<p style='text-align:center;'>Loading live data...</p>";
             
             try {
-                const querySnapshot = await getDocs(collection(db, "players"));
-                let html = "";
-                let totalLeaguePoints = 0;
+                // 1. Fetch Players
+                const pSnapshot = await getDocs(collection(db, "players"));
                 globalPlayersData = [];
+                let totalLeaguePoints = 0;
                 
-                querySnapshot.forEach((doc) => {
+                pSnapshot.forEach((doc) => {
                     const data = { id: doc.id, ...doc.data() };
                     globalPlayersData.push(data);
                     totalLeaguePoints += (data.rawPoints || 0);
                 });
                 
-                // Update Global Stats Banner
                 document.getElementById("stat-players").innerText = globalPlayersData.length;
                 document.getElementById("stat-points").innerText = totalLeaguePoints;
 
-                // Sort by total score
-                globalPlayersData.sort((a, b) => b.totalScore - a.totalScore);
-
-                globalPlayersData.forEach((p) => {
-                    html += `
-                    <div class="player-card" onclick="openPlayerModal('${p.id}')">
-                        <div class="player-header">
-                            <strong>${p.id}</strong>
-                            <span class="total-score">${p.totalScore || 0} Pts</span>
-                        </div>
-                        <div class="stats-row">
-                            <span>Raw: ${p.rawPoints || 0}</span> | 
-                            <span>Bonus: ${p.bonusPoints || 0}</span> | 
-                            <span>Att: ${p.attendance || 0}</span>
-                        </div>
-                    </div>`;
+                // 2. Fetch Matches
+                const mSnapshot = await getDocs(collection(db, "matches"));
+                globalMatchesData = [];
+                mSnapshot.forEach((doc) => {
+                    globalMatchesData.push({ id: doc.id, ...doc.data() });
                 });
-                
-                if(html === "") html = "<p style='text-align:center; color:#aaa;'>No player data found yet.</p>";
-                leaderboardList.innerHTML = html;
+
+                renderLeaderboard();
+                renderMatches();
+                populateAdminDropdowns();
+
             } catch (error) {
-                leaderboardList.innerHTML = `<p style='color:#ff6b6b;'>Error loading data: ${error.message}</p>`;
+                console.error("Error loading data:", error);
             }
         }
 
-        // --- PLAYER MODAL & GRAPH LOGIC ---
-        let playerChart = null;
+        // --- RENDER LEADERBOARD & ROSTERS ---
+        function renderLeaderboard() {
+            let html = "";
+            let activeTeams = [];
+            let freeAgents = [];
+            let processedPairs = new Set();
+            activeTeamsList = []; // Reset for admin dropdown
+
+            globalPlayersData.sort((a, b) => b.totalScore - a.totalScore); 
+
+            globalPlayersData.forEach((p) => {
+                html += `
+                <div class="player-card" onclick="openPlayerModal('${p.id}')">
+                    <div class="player-header">
+                        <strong>${p.id}</strong>
+                        <span class="total-score">${p.totalScore || 0} Pts</span>
+                    </div>
+                    <div class="stats-row">
+                        <span>Raw: ${p.rawPoints || 0}</span> | 
+                        <span>Bonus: ${p.bonusPoints || 0}</span> | 
+                        <span>Att: ${p.attendance || 0}</span>
+                    </div>
+                </div>`;
+
+                if (p.isFreeAgent) {
+                    freeAgents.push(p.id);
+                } else if (p.currentPartner && !processedPairs.has(p.id)) {
+                    const teamStr = `${p.id} & ${p.currentPartner}`;
+                    activeTeams.push(teamStr);
+                    activeTeamsList.push({ p1: p.id, p2: p.currentPartner, name: teamStr });
+                    processedPairs.add(p.id);
+                    processedPairs.add(p.currentPartner);
+                }
+            });
+            
+            document.getElementById("live-teams").innerHTML = activeTeams.length > 0 
+                ? activeTeams.map(t => `<div class="team-tag">${t}</div>`).join('') 
+                : "<p style='color:#aaa; font-size: 13px;'>No teams generated yet.</p>";
+            
+            document.getElementById("live-free-agents").innerHTML = freeAgents.length > 0 
+                ? freeAgents.map(fa => `<div class="fa-tag">${fa}</div>`).join('') 
+                : "<p style='color:#aaa; font-size: 13px;'>None currently.</p>";
+
+            document.getElementById("leaderboard-list").innerHTML = html || "<p style='text-align:center; color:#aaa;'>No data.</p>";
+        }
+
+        // --- RENDER FIXTURES & RESULTS ---
+        function renderMatches() {
+            let fixturesHtml = "";
+            let resultsHtml = "";
+            let approvalsHtml = "";
+
+            globalMatchesData.forEach(m => {
+                const teamAStr = m.teamA.join(" & ");
+                const teamBStr = m.teamB.join(" & ");
+                
+                if (m.status === "pending") {
+                    fixturesHtml += `
+                    <div class="match-card">
+                        <div style="text-align:center; margin-bottom:10px;"><b>${teamAStr}</b> <br><span style="color:#f39c12; font-size:12px;">VS</span><br> <b>${teamBStr}</b></div>
+                        <button class="action-btn" onclick="userSubmitScore('${m.id}', '${teamAStr}', '${teamBStr}')">Input Score</button>
+                    </div>`;
+                } else if (m.status === "played") {
+                    fixturesHtml += `
+                    <div class="match-card" style="border-left: 4px solid #f39c12;">
+                        <div style="text-align:center;"><b>${teamAStr}</b> (${m.scoreA}) <br><span style="color:#f39c12; font-size:12px;">VS</span><br> <b>${teamBStr}</b> (${m.scoreB})</div>
+                        <p style="text-align:center; color:#f39c12; font-size:12px; margin: 10px 0 0 0;">Under Admin Review ⏳</p>
+                    </div>`;
+                    
+                    // Admin Approval Card
+                    approvalsHtml += `
+                    <div class="match-card" style="border-left: 4px solid #f39c12;">
+                        <p style="margin:0 0 10px 0; font-size:14px;"><b>${teamAStr}</b> (${m.scoreA}) vs <b>${teamBStr}</b> (${m.scoreB})</p>
+                        <button style="background:#27ae60; color:white; padding:8px;" onclick="approveScore('${m.id}')">Approve & Update Profiles</button>
+                        <button style="background:#e74c3c; color:white; padding:8px;" onclick="rejectScore('${m.id}')">Reject (Reset)</button>
+                    </div>`;
+                } else if (m.status === "confirmed") {
+                    resultsHtml += `
+                    <div class="match-card" style="border-left: 4px solid #18bc9c;">
+                        <div style="text-align:center; font-size:15px;">
+                            <b>${teamAStr}</b> <span style="color:#18bc9c; font-size:18px; font-weight:bold;">${m.scoreA}</span> - <span style="color:#18bc9c; font-size:18px; font-weight:bold;">${m.scoreB}</span> <b>${teamBStr}</b>
+                        </div>
+                    </div>`;
+                }
+            });
+
+            document.getElementById("fixtures-list").innerHTML = fixturesHtml || "<p style='text-align:center; color:#aaa;'>No active fixtures.</p>";
+            document.getElementById("results-list").innerHTML = resultsHtml || "<p style='text-align:center; color:#aaa;'>No results yet.</p>";
+            
+            const approvalSection = document.getElementById("admin-approvals");
+            if (approvalsHtml) {
+                approvalSection.innerHTML = approvalsHtml;
+                approvalSection.style.display = "block";
+            } else {
+                approvalSection.style.display = "none";
+            }
+        }
+
+        // --- TAB SWITCHING ---
+        window.switchTab = (tabId) => {
+            document.getElementById("tab-leaderboard").style.display = "none";
+            document.getElementById("tab-fixtures").style.display = "none";
+            document.getElementById("tab-results").style.display = "none";
+            document.getElementById("btn-leaderboard").classList.remove("active-tab");
+            document.getElementById("btn-fixtures").classList.remove("active-tab");
+            document.getElementById("btn-results").classList.remove("active-tab");
+
+            document.getElementById(`tab-${tabId}`).style.display = "block";
+            document.getElementById(`btn-${tabId}`).classList.add("active-tab");
+        };
+
+        // --- USER SCORE INPUT ---
+        window.userSubmitScore = async (matchId, teamA, teamB) => {
+            const scoreA = prompt(`Enter RAW points scored by ${teamA}:`);
+            if(scoreA === null || scoreA === "") return;
+            const scoreB = prompt(`Enter RAW points scored by ${teamB}:`);
+            if(scoreB === null || scoreB === "") return;
+
+            try {
+                await updateDoc(doc(db, "matches", matchId), {
+                    scoreA: parseInt(scoreA),
+                    scoreB: parseInt(scoreB),
+                    status: "played"
+                });
+                alert("Score submitted! Waiting for Admin confirmation.");
+                loadAllData();
+            } catch (error) { alert("Error: " + error.message); }
+        };
+
+        // --- ADMIN SCORE APPROVAL (THE ALGORITHM) ---
+        window.approveScore = async (matchId) => {
+            const match = globalMatchesData.find(m => m.id === matchId);
+            if(!match) return;
+
+            let bonusA = 0, bonusB = 0;
+            // Win/Tie Bonus
+            if (match.scoreA > match.scoreB) bonusA += 2;
+            else if (match.scoreB > match.scoreA) bonusB += 2;
+            else { bonusA += 1; bonusB += 1; }
+
+            // Clean Sheet Bonus
+            if (match.scoreA > 0 && match.scoreB === 0) bonusA += 1;
+            if (match.scoreB > 0 && match.scoreA === 0) bonusB += 1;
+
+            try {
+                const batch = writeBatch(db);
+                
+                // Update Team A Players
+                match.teamA.forEach(playerId => {
+                    batch.update(doc(db, "players", playerId), {
+                        rawPoints: increment(match.scoreA),
+                        bonusPoints: increment(bonusA),
+                        attendance: increment(1),
+                        totalScore: increment(match.scoreA + bonusA + 1)
+                    });
+                });
+
+                // Update Team B Players
+                match.teamB.forEach(playerId => {
+                    batch.update(doc(db, "players", playerId), {
+                        rawPoints: increment(match.scoreB),
+                        bonusPoints: increment(bonusB),
+                        attendance: increment(1),
+                        totalScore: increment(match.scoreB + bonusB + 1)
+                    });
+                });
+
+                // Set Match to Confirmed
+                batch.update(doc(db, "matches", matchId), { status: "confirmed" });
+
+                await batch.commit();
+                alert("Score Approved & Leaderboard Updated!");
+                loadAllData();
+            } catch (error) { alert("Error: " + error.message); }
+        };
+
+        window.rejectScore = async (matchId) => {
+            if(!confirm("Reject this score and reset it to a fixture?")) return;
+            try {
+                await updateDoc(doc(db, "matches", matchId), { scoreA: 0, scoreB: 0, status: "pending" });
+                loadAllData();
+            } catch (error) { alert("Error: " + error.message); }
+        };
+
+        // --- ADMIN FIXTURE CREATION ---
+        function populateAdminDropdowns() {
+            let pOptions = '<option value="">-- Select Player --</option>';
+            globalPlayersData.forEach(p => pOptions += `<option value="${p.id}">${p.id}</option>`);
+            document.getElementById('team-p1').innerHTML = pOptions;
+            document.getElementById('team-p2').innerHTML = pOptions;
+            document.getElementById('fa-player').innerHTML = pOptions;
+
+            let tOptions = '<option value="">-- Select A Live Team --</option>';
+            activeTeamsList.forEach((t, index) => {
+                tOptions += `<option value="${index}">${t.name}</option>`;
+            });
+            document.getElementById('fix-teamA').innerHTML = tOptions;
+            document.getElementById('fix-teamB').innerHTML = tOptions;
+        }
+
+        window.createFixture = async () => {
+            const idxA = document.getElementById('fix-teamA').value;
+            const idxB = document.getElementById('fix-teamB').value;
+            if(idxA === "" || idxB === "") return alert("Select two teams.");
+            if(idxA === idxB) return alert("A team cannot play itself!");
+
+            const teamA = activeTeamsList[idxA];
+            const teamB = activeTeamsList[idxB];
+            const matchId = `match_${Date.now()}`;
+
+            try {
+                await setDoc(doc(db, "matches", matchId), {
+                    teamA: [teamA.p1, teamA.p2],
+                    teamB: [teamB.p1, teamB.p2],
+                    scoreA: 0,
+                    scoreB: 0,
+                    status: "pending"
+                });
+                alert("Fixture created and is now live!");
+                loadAllData();
+            } catch (error) { alert("Error: " + error.message); }
+        };
+
+        // --- ADMIN CLEAR DATA ---
+        window.clearMatchesByStatus = async (status) => {
+            if(!confirm(`Are you sure you want to delete all ${status} matches?`)) return;
+            try {
+                const batch = writeBatch(db);
+                globalMatchesData.filter(m => m.status === status).forEach(m => {
+                    batch.delete(doc(db, "matches", m.id));
+                });
+                await batch.commit();
+                alert(`All ${status} matches cleared.`);
+                loadAllData();
+            } catch (error) { alert("Error: " + error.message); }
+        };
+
+        // --- PLAYER MODAL (Historical) ---
         window.openPlayerModal = (playerId) => {
             const player = globalPlayersData.find(p => p.id === playerId);
             if(!player) return;
-
             document.getElementById("modal-name").innerText = player.id + "'s Profile";
-            
-            // Show partners (The Hustle Constraint Check)
-            const partners = player.partners ? player.partners.join(", ") : "None yet";
+            const partners = player.partners && player.partners.length > 0 ? player.partners.join(", ") : "None yet";
             document.getElementById("modal-partners").innerHTML = `<b>Past Partners:</b> ${partners}`;
-
             document.getElementById("player-modal").style.display = "block";
-
-            // Render Chart
-            const ctx = document.getElementById('playerChart').getContext('2d');
-            if(playerChart) playerChart.destroy(); // Clear old chart
-            
-            playerChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['GW1', 'GW2', 'GW3', 'GW4'], // Placeholder for gameweeks
-                    datasets: [{
-                        label: 'Points per Gameweek',
-                        data: player.history || [player.totalScore, 0, 0, 0], 
-                        backgroundColor: '#18bc9c',
-                        borderRadius: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: { y: { beginAtZero: true, grid: { color: '#333' } }, x: { grid: { color: '#333' } } },
-                    plugins: { legend: { labels: { color: '#fff' } } }
-                }
-            });
         };
+        window.closeModal = () => document.getElementById("player-modal").style.display = "none";
 
-        window.closeModal = () => {
-            document.getElementById("player-modal").style.display = "none";
-        };
-
-        // --- ADMIN AUTH ---
+        // --- ADMIN AUTH & OLD CONTROLS ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 document.getElementById("admin-panel").style.display = "block";
@@ -132,194 +329,135 @@
                 document.getElementById("login-section").style.display = "block";
             }
         });
-
         window.loginAdmin = () => {
-            const email = document.getElementById("email").value;
-            const pass = document.getElementById("password").value;
-            signInWithEmailAndPassword(auth, email, pass)
-                .then(() => alert("Master Admin Access Granted!"))
+            signInWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("password").value)
                 .catch((error) => alert("Login Failed: " + error.message));
         };
+        window.logoutAdmin = () => signOut(auth);
 
-        window.logoutAdmin = () => {
-            signOut(auth).then(() => alert("Logged out successfully."));
-        };
-
-        // --- WORKING ADMIN BUTTONS ---
-        window.loadHistoricalData = async () => {
-            const button = document.getElementById("load-data-btn");
-            button.innerText = "Loading Individual Data...";
-            
-            // Separated into individuals for the individual leaderboard rule
-            const gw1Data = [
-                { id: "Luke", raw: 81, bonus: 8, att: 1, total: 90, partners: ["Rotating Fillers"], history: [90] },
-                { id: "Figo", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Ezra"], history: [86] },
-                { id: "Ezra", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Figo"], history: [86] },
-                { id: "Naashid", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Matthew"], history: [75] },
-                { id: "Matthew", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Naashid"], history: [75] },
-                { id: "Jason", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Leigh"], history: [70] },
-                { id: "Leigh", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Jason"], history: [70] },
-                { id: "Simone", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Charlie"], history: [62] },
-                { id: "Charlie", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Simone"], history: [62] },
-                { id: "Kyle", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Sky"], history: [59] },
-                { id: "Sky", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Kyle"], history: [59] },
-                { id: "Brady", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Aneeqah"], history: [57] },
-                { id: "Aneeqah", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Brady"], history: [57] }
-            ];
-
+        window.pairPlayers = async () => {
+            const p1 = document.getElementById('team-p1').value, p2 = document.getElementById('team-p2').value;
+            if(!p1 || !p2 || p1===p2) return alert("Invalid pair.");
             try {
-                for (const p of gw1Data) {
-                    await setDoc(doc(db, "players", p.id), {
-                        rawPoints: p.raw,
-                        bonusPoints: p.bonus,
-                        attendance: p.att,
-                        totalScore: p.total,
-                        partners: p.partners,
-                        history: p.history
-                    });
-                }
-                alert("Gameweek 1 Individual Data loaded!");
-                button.innerText = "Data Loaded Successfully";
-                button.style.backgroundColor = "#18bc9c";
-                loadLeaderboard(); 
-            } catch (error) {
-                alert("Error loading data: " + error.message);
-                button.innerText = "Push Gameweek 1 Data";
-            }
+                const batch = writeBatch(db);
+                batch.update(doc(db, "players", p1), { currentPartner: p2, isFreeAgent: false });
+                batch.update(doc(db, "players", p2), { currentPartner: p1, isFreeAgent: false });
+                await batch.commit(); loadAllData();
+            } catch(e){}
+        };
+        window.makeFreeAgent = async () => {
+            const p = document.getElementById('fa-player').value;
+            if(!p) return;
+            try { await updateDoc(doc(db, "players", p), { currentPartner: null, isFreeAgent: true }); loadAllData(); } catch(e){}
+        };
+        window.clearGameweekRoster = async () => {
+            const batch = writeBatch(db);
+            globalPlayersData.forEach(p => batch.update(doc(db, "players", p.id), { currentPartner: null, isFreeAgent: false }));
+            await batch.commit(); loadAllData();
         };
 
-        window.generateMatrixPrompt = () => {
-            const promptText = "Generate 7 rounds for 14 players on 2 courts. Format it clearly. Ensure no duplicate pairings from last week based on The Hustle Constraint.";
-            navigator.clipboard.writeText(promptText).then(() => {
-                alert("Prompt copied to your clipboard! Open ChatGPT or Gemini and paste it in to get your matrix.");
-            });
+        window.onload = () => {
+            loadAllData();
+            switchTab('leaderboard'); 
         };
-
-        window.assignGhostPlayer = () => {
-            const ghostName = prompt("Enter the name of the Stand-In / Ghost Player:");
-            if(ghostName) {
-                alert(ghostName + " has been temporarily authorized for this gameweek. Registered league partner will receive points.");
-            }
-        };
-
-        window.onload = loadLeaderboard;
     </script>
 
-    <!-- DARK THEME & MODAL STYLING -->
+    <!-- STYLING -->
     <style>
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            padding: 15px; 
-            background: #121212; 
-            color: #e0e0e0; 
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        .card { 
-            background: #1e1e1e; 
-            padding: 20px; 
-            border-radius: 12px; 
-            margin-bottom: 20px; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5); 
-            border: 1px solid #333;
-        }
-        h1 { color: #18bc9c; margin-top: 0; font-size: 24px; text-align: center; text-transform: uppercase; letter-spacing: 1px;}
-        h2 { font-size: 18px; color: #18bc9c; border-bottom: 1px solid #333; padding-bottom: 8px;}
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; background: #121212; color: #e0e0e0; max-width: 600px; margin: 0 auto; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #333; }
+        h1 { color: #18bc9c; margin-top: 0; font-size: 24px; text-align: center; text-transform: uppercase;}
+        h2 { font-size: 16px; color: #18bc9c; border-bottom: 1px solid #333; padding-bottom: 8px; margin-top: 20px;}
         
-        /* Global Stats Banner */
-        .global-stats {
-            display: flex;
-            justify-content: space-around;
-            background: #252525;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border: 1px dashed #18bc9c;
-        }
+        /* TABS */
+        .tab-container { display: flex; justify-content: space-between; margin-bottom: 15px; background: #1a1a1a; border-radius: 8px; overflow: hidden; border: 1px solid #333;}
+        .tab-btn { flex: 1; text-align: center; padding: 12px 5px; font-size: 13px; font-weight: bold; background: transparent; color: #aaa; border: none; cursor: pointer; transition: 0.3s; margin:0;}
+        .active-tab { background: #18bc9c; color: #121212; }
+
+        .global-stats { display: flex; justify-content: space-around; background: #252525; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed #18bc9c; }
         .stat-box { text-align: center; }
         .stat-box span { display: block; font-size: 24px; font-weight: bold; color: #18bc9c; }
         .stat-box small { color: #aaa; font-size: 12px; text-transform: uppercase; }
 
-        .player-card {
-            background: #2c2c2c;
-            border-left: 5px solid #18bc9c;
-            padding: 15px;
-            margin-bottom: 12px;
-            border-radius: 6px;
-            display: flex;
-            flex-direction: column;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        .player-card:active { transform: scale(0.98); }
+        .live-roster-box { background: #181818; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f39c12; }
+        .live-roster-box h3 { margin: 0 0 10px 0; font-size: 14px; color: #f39c12; text-transform: uppercase; }
+        .team-tag { display: inline-block; background: #2c3e50; color: white; padding: 6px 12px; border-radius: 20px; font-size: 13px; margin: 0 5px 8px 0; border: 1px solid #34495e; }
+        .fa-tag { display: inline-block; background: #e74c3c; color: white; padding: 6px 12px; border-radius: 20px; font-size: 13px; margin: 0 5px 8px 0; border: 1px solid #c0392b;}
+
+        .player-card, .match-card { background: #2c2c2c; padding: 15px; margin-bottom: 12px; border-radius: 6px; cursor: pointer; }
+        .player-card { border-left: 5px solid #18bc9c; }
+        .match-card { border: 1px solid #444; }
         .player-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .player-header strong { font-size: 18px; color: #ffffff; }
         .total-score { font-size: 18px; font-weight: bold; color: #18bc9c; }
         .stats-row { color: #aaaaaa; font-size: 13px; display: flex; justify-content: space-between;}
 
-        /* Modal Styles */
-        .modal {
-            display: none; 
-            position: fixed; 
-            z-index: 100; 
-            left: 0; top: 0; width: 100%; height: 100%; 
-            background-color: rgba(0,0,0,0.8);
-        }
-        .modal-content {
-            background-color: #1e1e1e;
-            margin: 20% auto; 
-            padding: 20px;
-            border: 1px solid #18bc9c;
-            width: 90%;
-            max-width: 500px;
-            border-radius: 12px;
-            color: white;
-        }
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
+        .modal-content { background: #1e1e1e; margin: 20% auto; padding: 20px; border: 1px solid #18bc9c; width: 90%; max-width: 500px; border-radius: 12px; color: white; }
         .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
-        .close-btn:hover { color: #fff; }
-
-        input { width: 100%; padding: 12px; margin-bottom: 12px; background: #2c2c2c; color: white; border: 1px solid #444; border-radius: 6px; box-sizing: border-box;}
-        button { background: #18bc9c; color: #121212; border: none; padding: 14px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 15px; margin-bottom: 12px;}
-        .action-btn { background: #3498db; color: white; }
-        .logout-btn { background: #e74c3c; color: white; }
+        
+        select, input { width: 100%; padding: 12px; margin-bottom: 12px; background: #2c2c2c; color: white; border: 1px solid #444; border-radius: 6px; box-sizing: border-box; font-size: 14px;}
+        button { background: #18bc9c; color: #121212; border: none; padding: 12px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; margin-bottom: 10px;}
+        .action-btn { background: #3498db; color: white; margin-top:10px; }
+        .danger-btn { background: #e74c3c; color: white; }
+        .warning-btn { background: #f39c12; color: white; }
+        
         #admin-panel { display: none; border-top: 4px solid #e74c3c; }
+        #admin-approvals { display:none; background:#2c1b18; padding:15px; border-radius:8px; border:1px solid #e74c3c; margin-bottom:20px; }
     </style>
 </head>
 <body>
 
-    <!-- PUBLIC VIEW: THE LEADERBOARD -->
-    <div class="card">
-        <h1>🏆 Season 2 Standings</h1>
-        
+    <!-- NAVIGATION TABS -->
+    <div class="tab-container">
+        <button id="btn-leaderboard" class="tab-btn" onclick="switchTab('leaderboard')">🏆 Standings</button>
+        <button id="btn-fixtures" class="tab-btn" onclick="switchTab('fixtures')">🎾 Fixtures</button>
+        <button id="btn-results" class="tab-btn" onclick="switchTab('results')">📋 Results</button>
+    </div>
+
+    <!-- TAB 1: LEADERBOARD -->
+    <div id="tab-leaderboard" class="card">
         <div class="global-stats">
-            <div class="stat-box">
-                <span id="stat-players">0</span>
-                <small>Active Players</small>
-            </div>
-            <div class="stat-box">
-                <span id="stat-points">0</span>
-                <small>Total Raw Pts</small>
-            </div>
+            <div class="stat-box"><span id="stat-players">0</span><small>Active</small></div>
+            <div class="stat-box"><span id="stat-points">0</span><small>Raw Pts</small></div>
         </div>
 
-        <p style="text-align: center; color: #aaa; font-size: 12px;">Tap any player to view history & partners</p>
-        
+        <div class="live-roster-box">
+            <h3>🎾 Tonight's Teams</h3>
+            <div id="live-teams">Loading...</div>
+            <h3 style="margin-top: 15px; color:#e74c3c;">🧍‍♂️ Free Agents</h3>
+            <div id="live-free-agents">Loading...</div>
+        </div>
+
+        <p style="text-align: center; color: #aaa; font-size: 12px;">Tap any player to view history</p>
         <div id="leaderboard-list"></div>
+    </div>
+
+    <!-- TAB 2: FIXTURES (Public Score Input) -->
+    <div id="tab-fixtures" class="card" style="display:none;">
+        <h2 style="margin-top:0;">Live Matches</h2>
+        <p style="font-size:12px; color:#aaa;">Tap "Input Score" when the match finishes.</p>
+        <div id="fixtures-list"></div>
+    </div>
+
+    <!-- TAB 3: RESULTS -->
+    <div id="tab-results" class="card" style="display:none;">
+        <h2 style="margin-top:0;">Completed Matches</h2>
+        <div id="results-list"></div>
     </div>
 
     <!-- PLAYER STATS MODAL -->
     <div id="player-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal()">&times;</span>
-            <h2 id="modal-name" style="margin-top: 0;">Player Profile</h2>
+            <h2 id="modal-name" style="margin-top: 0; border: none;">Profile</h2>
             <p id="modal-partners" style="font-size: 14px; color: #ccc;"></p>
-            <canvas id="playerChart" width="400" height="250"></canvas>
         </div>
     </div>
 
     <!-- ADMIN LOGIN -->
     <div class="card" id="login-section">
-        <h2>Admin Access</h2>
+        <h2 style="margin-top: 0;">Admin Access</h2>
         <input type="email" id="email" placeholder="Admin Email">
         <input type="password" id="password" placeholder="Password">
         <button onclick="loginAdmin()">Unlock Dashboard</button>
@@ -327,21 +465,37 @@
 
     <!-- HIDDEN ADMIN DASHBOARD -->
     <div class="card" id="admin-panel">
-        <h1 style="color: #e74c3c;">⚙️ Master Dashboard</h1>
-        <p id="admin-status" style="text-align: center; font-size: 14px; color: #aaa;"></p>
+        <h1 style="color: #e74c3c; font-size: 20px;">⚙️ Master Dashboard</h1>
         
-        <h2>1. Initialization</h2>
-        <button id="load-data-btn" class="action-btn" onclick="loadHistoricalData()">Push Gameweek 1 Data</button>
-        
-        <h2>2. Match Logistics</h2>
-        <button onclick="generateMatrixPrompt()">Copy Matrix Prompt for AI</button>
-        
-        <h2>3. Roster Overrides</h2>
-        <button onclick="assignGhostPlayer()">Assign Stand-In / Ghost Player</button>
+        <!-- SCORE APPROVALS QUEUE -->
+        <div id="admin-approvals">
+            <h3 style="color:#e74c3c; margin-top:0;">🚨 Pending Approvals</h3>
+            <!-- Played matches populate here for approval -->
+        </div>
+
+        <h2>1. Create Live Fixture</h2>
+        <p style="font-size:12px; color:#aaa;">Pair two active teams for a match.</p>
+        <select id="fix-teamA"></select>
+        <select id="fix-teamB"></select>
+        <button class="action-btn" onclick="createFixture()">Launch Fixture</button>
+
+        <h2>2. Build Tonight's Roster</h2>
+        <select id="team-p1"></select>
+        <select id="team-p2"></select>
+        <button onclick="pairPlayers()">Link Players (Team)</button>
+        <select id="fa-player" style="margin-top:10px;"></select>
+        <button class="warning-btn" onclick="makeFreeAgent()">Set as Free Agent</button>
+
+        <h2>3. Data Controls & Resets</h2>
+        <button class="warning-btn" onclick="clearGameweekRoster()">Clear Tonight's Roster</button>
+        <button class="danger-btn" onclick="clearMatchesByStatus('pending')">Delete Unplayed Fixtures</button>
+        <button class="danger-btn" onclick="clearMatchesByStatus('confirmed')">Clear Old Results</button>
 
         <hr style="border: 1px solid #333; margin: 20px 0;">
-        <button class="logout-btn" onclick="logoutAdmin()">Lock Dashboard (Log Out)</button>
+        <button class="danger-btn" onclick="logoutAdmin()">Lock Dashboard</button>
     </div>
 
 </body>
 </html>
+                                        background: #252525;
+            
