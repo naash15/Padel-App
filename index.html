@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -194,7 +194,7 @@
                     status: "played"
                 });
                 alert("Score submitted! Waiting for Admin confirmation.");
-                loadAllData();
+                await loadAllData();
             } catch (error) { alert("Error: " + error.message); }
         };
 
@@ -229,7 +229,7 @@
                 batch.update(doc(db, "matches", matchId), { status: "confirmed" });
                 await batch.commit();
                 alert("Score Approved & Leaderboard Updated!");
-                loadAllData();
+                await loadAllData();
             } catch (error) { alert("Error: " + error.message); }
         };
 
@@ -237,11 +237,11 @@
             if(!confirm("Reject this score and reset it to a fixture?")) return;
             try {
                 await updateDoc(doc(db, "matches", matchId), { scoreA: 0, scoreB: 0, status: "pending" });
-                loadAllData();
+                await loadAllData();
             } catch (error) { alert("Error: " + error.message); }
         };
 
-        // --- NEW: ADD PLAYER DYNAMICALLY ---
+        // --- ADD PLAYER DYNAMICALLY (FIXED) ---
         window.addNewPlayer = async () => {
             const nameInput = document.getElementById("new-player-name").value.trim();
             if(!nameInput) return alert("Please enter a player name.");
@@ -258,8 +258,8 @@
                 });
                 alert(`${nameInput} successfully added to the database!`);
                 document.getElementById("new-player-name").value = "";
-                // This will re-fetch data and automatically populate all dropdowns with the new name
-                loadAllData();
+                // The await here ensures dropdowns load the new player immediately
+                await loadAllData();
             } catch (error) { alert("Error: " + error.message); }
         };
 
@@ -300,7 +300,7 @@
                     status: "pending"
                 });
                 alert("Fixture created and is now live!");
-                loadAllData();
+                await loadAllData();
             } catch (error) { alert("Error: " + error.message); }
         };
 
@@ -313,11 +313,11 @@
                 });
                 await batch.commit();
                 alert(`All ${status} matches cleared.`);
-                loadAllData();
+                await loadAllData();
             } catch (error) { alert("Error: " + error.message); }
         };
 
-        // --- PLAYER MODAL & GRAPH LOGIC ---
+        // --- PLAYER MODAL & LINE GRAPH LOGIC (FIXED) ---
         let playerChart = null;
         window.openPlayerModal = (playerId) => {
             const player = globalPlayersData.find(p => p.id === playerId);
@@ -330,19 +330,22 @@
 
             document.getElementById("player-modal").style.display = "block";
 
-            // Render Chart
+            // Render Line Chart
             const ctx = document.getElementById('playerChart').getContext('2d');
             if(playerChart) playerChart.destroy(); 
             
             playerChart = new Chart(ctx, {
-                type: 'bar',
+                type: 'line', // Changed to Line Graph
                 data: {
-                    labels: ['GW1', 'GW2', 'GW3', 'GW4'], 
+                    labels: ['GW1', 'GW2', 'GW3', 'GW4', 'GW5'], 
                     datasets: [{
                         label: 'Points per Gameweek',
                         data: player.history && player.history.length > 0 ? player.history : [player.totalScore, 0, 0, 0], 
-                        backgroundColor: '#18bc9c',
-                        borderRadius: 4
+                        borderColor: '#18bc9c', // Line color
+                        backgroundColor: 'rgba(24, 188, 156, 0.2)', // Shading under the line
+                        borderWidth: 3,
+                        tension: 0.3, // Adds a slight smooth curve
+                        fill: true
                     }]
                 },
                 options: {
@@ -354,6 +357,7 @@
         };
         window.closeModal = () => document.getElementById("player-modal").style.display = "none";
 
+        // --- ADMIN CONTROLS (FIXED SILENT ERRORS) ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 document.getElementById("admin-panel").style.display = "block";
@@ -371,26 +375,39 @@
 
         window.pairPlayers = async () => {
             const p1 = document.getElementById('team-p1').value, p2 = document.getElementById('team-p2').value;
-            if(!p1 || !p2 || p1===p2) return alert("Invalid pair.");
+            if(!p1 || !p2 || p1===p2) return alert("Invalid pair. Please select two different players.");
             try {
                 const batch = writeBatch(db);
                 batch.update(doc(db, "players", p1), { currentPartner: p2, isFreeAgent: false });
                 batch.update(doc(db, "players", p2), { currentPartner: p1, isFreeAgent: false });
-                await batch.commit(); loadAllData();
-            } catch(e){}
-        };
-        window.makeFreeAgent = async () => {
-            const p = document.getElementById('fa-player').value;
-            if(!p) return;
-            try { await updateDoc(doc(db, "players", p), { currentPartner: null, isFreeAgent: true }); loadAllData(); } catch(e){}
-        };
-        window.clearGameweekRoster = async () => {
-            const batch = writeBatch(db);
-            globalPlayersData.forEach(p => batch.update(doc(db, "players", p.id), { currentPartner: null, isFreeAgent: false }));
-            await batch.commit(); loadAllData();
+                await batch.commit(); 
+                alert(`Success: ${p1} and ${p2} are now linked as a team.`);
+                await loadAllData(); 
+            } catch(e) { alert("Error linking players: " + e.message); }
         };
 
-        // --- INJECT FULL GW1 DATA (INCLUDING MATCHES AND JODIE) ---
+        window.makeFreeAgent = async () => {
+            const p = document.getElementById('fa-player').value;
+            if(!p) return alert("Please select a player to set as Free Agent.");
+            try { 
+                await updateDoc(doc(db, "players", p), { currentPartner: null, isFreeAgent: true }); 
+                alert(`Success: ${p} has been set as a Free Agent.`);
+                await loadAllData(); 
+            } catch(e) { alert("Error setting Free Agent: " + e.message); }
+        };
+
+        window.clearGameweekRoster = async () => {
+            if(!confirm("Are you sure you want to clear tonight's roster?")) return;
+            try {
+                const batch = writeBatch(db);
+                globalPlayersData.forEach(p => batch.update(doc(db, "players", p.id), { currentPartner: null, isFreeAgent: false }));
+                await batch.commit(); 
+                alert("Roster cleared.");
+                await loadAllData();
+            } catch(e) { alert("Error clearing roster: " + e.message); }
+        };
+
+        // --- INJECT FULL GW1 DATA ---
         window.loadHistoricalData = async () => {
             const button = document.getElementById("load-data-btn");
             button.innerText = "Injecting Profiles & Matches...";
@@ -447,7 +464,7 @@
                 await batch.commit();
                 alert("Gameweek 1 Profiles AND Match Results delivered!");
                 button.innerText = "Push GW1 Data";
-                loadAllData(); 
+                await loadAllData(); 
             } catch (error) { alert("Error: " + error.message); }
         };
 
@@ -546,6 +563,7 @@
             <span class="close-btn" onclick="closeModal()">&times;</span>
             <h2 id="modal-name" style="margin-top: 0; border: none;">Profile</h2>
             <p id="modal-partners" style="font-size: 14px; color: #ccc;"></p>
+            <!-- Here is the canvas for the Line Graph -->
             <canvas id="playerChart" width="400" height="250"></canvas>
         </div>
     </div>
