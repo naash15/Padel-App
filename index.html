@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Padel Season 2 Hub</title>
     
+    <!-- CHART.JS FOR GRAPHS -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- FIREBASE IMPORT SCRIPTS -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
         import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch, increment } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
@@ -256,6 +258,7 @@
                 });
                 alert(`${nameInput} successfully added to the database!`);
                 document.getElementById("new-player-name").value = "";
+                // This will re-fetch data and automatically populate all dropdowns with the new name
                 loadAllData();
             } catch (error) { alert("Error: " + error.message); }
         };
@@ -314,14 +317,40 @@
             } catch (error) { alert("Error: " + error.message); }
         };
 
-        // --- MODAL AND AUTH ---
+        // --- PLAYER MODAL & GRAPH LOGIC ---
+        let playerChart = null;
         window.openPlayerModal = (playerId) => {
             const player = globalPlayersData.find(p => p.id === playerId);
             if(!player) return;
+
             document.getElementById("modal-name").innerText = player.id + "'s Profile";
+            
             const partners = player.partners && player.partners.length > 0 ? player.partners.join(", ") : "None yet";
             document.getElementById("modal-partners").innerHTML = `<b>Past Partners:</b> ${partners}`;
+
             document.getElementById("player-modal").style.display = "block";
+
+            // Render Chart
+            const ctx = document.getElementById('playerChart').getContext('2d');
+            if(playerChart) playerChart.destroy(); 
+            
+            playerChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['GW1', 'GW2', 'GW3', 'GW4'], 
+                    datasets: [{
+                        label: 'Points per Gameweek',
+                        data: player.history && player.history.length > 0 ? player.history : [player.totalScore, 0, 0, 0], 
+                        backgroundColor: '#18bc9c',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: { y: { beginAtZero: true, grid: { color: '#333' } }, x: { grid: { color: '#333' } } },
+                    plugins: { legend: { labels: { color: '#fff' } } }
+                }
+            });
         };
         window.closeModal = () => document.getElementById("player-modal").style.display = "none";
 
@@ -361,12 +390,11 @@
             await batch.commit(); loadAllData();
         };
 
-        // --- NEW: INJECT FULL GW1 DATA (INCLUDING MATCHES AND JODIE) ---
+        // --- INJECT FULL GW1 DATA (INCLUDING MATCHES AND JODIE) ---
         window.loadHistoricalData = async () => {
             const button = document.getElementById("load-data-btn");
             button.innerText = "Injecting Profiles & Matches...";
             
-            // Includes Jodie as Luke's partner
             const gw1Data = [
                 { id: "Luke", raw: 81, bonus: 8, att: 1, total: 90, partners: ["Jodie"], history: [90] },
                 { id: "Jodie", raw: 0, bonus: 0, att: 0, total: 0, partners: ["Luke"], history: [0] },
@@ -403,7 +431,6 @@
 
             try {
                 const batch = writeBatch(db);
-                // Push Players
                 for (const p of gw1Data) {
                     const playerRef = doc(db, "players", p.id);
                     batch.set(playerRef, {
@@ -411,7 +438,6 @@
                         partners: p.partners, history: p.history, currentPartner: null, isFreeAgent: false
                     });
                 }
-                // Push Match Data to Results Tab
                 for (const m of gw1Matches) {
                     const matchRef = doc(db, "matches", m.id);
                     batch.set(matchRef, {
@@ -431,6 +457,7 @@
         };
     </script>
 
+    <!-- STYLING -->
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; background: #121212; color: #e0e0e0; max-width: 600px; margin: 0 auto; }
         .card { background: #1e1e1e; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #333; }
@@ -475,12 +502,14 @@
 </head>
 <body>
 
+    <!-- NAVIGATION TABS -->
     <div class="tab-container">
         <button id="btn-leaderboard" class="tab-btn" onclick="switchTab('leaderboard')">🏆 Standings</button>
         <button id="btn-fixtures" class="tab-btn" onclick="switchTab('fixtures')">🎾 Fixtures</button>
         <button id="btn-results" class="tab-btn" onclick="switchTab('results')">📋 Results</button>
     </div>
 
+    <!-- TAB 1: LEADERBOARD -->
     <div id="tab-leaderboard" class="card">
         <div class="global-stats">
             <div class="stat-box"><span id="stat-players">0</span><small>Active</small></div>
@@ -488,7 +517,7 @@
         </div>
 
         <div class="live-roster-box">
-            <h3>🎾 Tonight's Teams</h3>
+            <h3>🎾 Confirmed Teams</h3>
             <div id="live-teams">Loading...</div>
             <h3 style="margin-top: 15px; color:#e74c3c;">🧍‍♂️ Free Agents</h3>
             <div id="live-free-agents">Loading...</div>
@@ -498,25 +527,30 @@
         <div id="leaderboard-list"></div>
     </div>
 
+    <!-- TAB 2: FIXTURES -->
     <div id="tab-fixtures" class="card" style="display:none;">
         <h2 style="margin-top:0;">Live Matches</h2>
         <p style="font-size:12px; color:#aaa;">Tap "Input Score" when the match finishes.</p>
         <div id="fixtures-list"></div>
     </div>
 
+    <!-- TAB 3: RESULTS -->
     <div id="tab-results" class="card" style="display:none;">
         <h2 style="margin-top:0;">Completed Matches</h2>
         <div id="results-list"></div>
     </div>
 
+    <!-- PLAYER STATS MODAL -->
     <div id="player-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal()">&times;</span>
             <h2 id="modal-name" style="margin-top: 0; border: none;">Profile</h2>
             <p id="modal-partners" style="font-size: 14px; color: #ccc;"></p>
+            <canvas id="playerChart" width="400" height="250"></canvas>
         </div>
     </div>
 
+    <!-- ADMIN LOGIN -->
     <div class="card" id="login-section">
         <h2 style="margin-top: 0;">Admin Access</h2>
         <input type="email" id="email" placeholder="Admin Email">
@@ -524,6 +558,7 @@
         <button onclick="loginAdmin()">Unlock Dashboard</button>
     </div>
 
+    <!-- HIDDEN ADMIN DASHBOARD -->
     <div class="card" id="admin-panel">
         <h1 style="color: #e74c3c; font-size: 20px;">⚙️ Master Dashboard</h1>
         
@@ -560,5 +595,3 @@
 
 </body>
 </html>
-
-                    
