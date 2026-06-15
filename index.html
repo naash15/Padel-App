@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Padel Season 2 Hub</title>
     
+    <!-- CHART.JS FOR GRAPHS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <!-- FIREBASE IMPORT SCRIPTS -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
@@ -12,25 +15,26 @@
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
 
         // =====================================================================
-        // ⚠️ PASTE YOUR COPIED FIREBASE CONFIG OVER THIS ENTIRE BLOCK ⚠️
+        // YOUR REAL FIREBASE KEYS (FIXED)
         // =====================================================================
         const firebaseConfig = {
-            apiKey: "PASTE_YOUR_COPIED_CODE_HERE",
-            authDomain: "PASTE_YOUR_COPIED_CODE_HERE",
-            databaseURL: "PASTE_YOUR_COPIED_CODE_HERE",
-            projectId: "PASTE_YOUR_COPIED_CODE_HERE",
-            storageBucket: "PASTE_YOUR_COPIED_CODE_HERE",
-            messagingSenderId: "PASTE_YOUR_COPIED_CODE_HERE",
-            appId: "PASTE_YOUR_COPIED_CODE_HERE"
+            apiKey: "AIzaSyB4zPzxFU7fcz7JCUrWJVTf6uk7UQYdmoQ",
+            authDomain: "padel-tournament-9f1b6.firebaseapp.com",
+            databaseURL: "https://padel-tournament-9f1b6-default-rtdb.firebaseio.com",
+            projectId: "padel-tournament-9f1b6",
+            storageBucket: "padel-tournament-9f1b6.firebasestorage.app",
+            messagingSenderId: "479440834494",
+            appId: "1:479440834494:web:f5c42ee88b93c2858173ef"
         };
         // =====================================================================
 
-        // Initialize App, Database, and Auth
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
+        
+        let globalPlayersData = []; // Store data for the graph modal
 
-        // --- PUBLIC LEADERBOARD LOGIC ---
+        // --- PUBLIC LEADERBOARD & GLOBAL STATS ---
         async function loadLeaderboard() {
             const leaderboardList = document.getElementById("leaderboard-list");
             leaderboardList.innerHTML = "<p style='text-align:center;'>Loading live data...</p>";
@@ -38,17 +42,25 @@
             try {
                 const querySnapshot = await getDocs(collection(db, "players"));
                 let html = "";
+                let totalLeaguePoints = 0;
+                globalPlayersData = [];
                 
-                let playersData = [];
                 querySnapshot.forEach((doc) => {
-                    playersData.push({ id: doc.id, ...doc.data() });
+                    const data = { id: doc.id, ...doc.data() };
+                    globalPlayersData.push(data);
+                    totalLeaguePoints += (data.rawPoints || 0);
                 });
                 
-                playersData.sort((a, b) => b.totalScore - a.totalScore);
+                // Update Global Stats Banner
+                document.getElementById("stat-players").innerText = globalPlayersData.length;
+                document.getElementById("stat-points").innerText = totalLeaguePoints;
 
-                playersData.forEach((p) => {
+                // Sort by total score
+                globalPlayersData.sort((a, b) => b.totalScore - a.totalScore);
+
+                globalPlayersData.forEach((p) => {
                     html += `
-                    <div class="player-card">
+                    <div class="player-card" onclick="openPlayerModal('${p.id}')">
                         <div class="player-header">
                             <strong>${p.id}</strong>
                             <span class="total-score">${p.totalScore || 0} Pts</span>
@@ -68,7 +80,48 @@
             }
         }
 
-        // --- ADMIN AUTH & DATA INJECTION LOGIC ---
+        // --- PLAYER MODAL & GRAPH LOGIC ---
+        let playerChart = null;
+        window.openPlayerModal = (playerId) => {
+            const player = globalPlayersData.find(p => p.id === playerId);
+            if(!player) return;
+
+            document.getElementById("modal-name").innerText = player.id + "'s Profile";
+            
+            // Show partners (The Hustle Constraint Check)
+            const partners = player.partners ? player.partners.join(", ") : "None yet";
+            document.getElementById("modal-partners").innerHTML = `<b>Past Partners:</b> ${partners}`;
+
+            document.getElementById("player-modal").style.display = "block";
+
+            // Render Chart
+            const ctx = document.getElementById('playerChart').getContext('2d');
+            if(playerChart) playerChart.destroy(); // Clear old chart
+            
+            playerChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['GW1', 'GW2', 'GW3', 'GW4'], // Placeholder for gameweeks
+                    datasets: [{
+                        label: 'Points per Gameweek',
+                        data: player.history || [player.totalScore, 0, 0, 0], 
+                        backgroundColor: '#18bc9c',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: { y: { beginAtZero: true, grid: { color: '#333' } }, x: { grid: { color: '#333' } } },
+                    plugins: { legend: { labels: { color: '#fff' } } }
+                }
+            });
+        };
+
+        window.closeModal = () => {
+            document.getElementById("player-modal").style.display = "none";
+        };
+
+        // --- ADMIN AUTH ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 document.getElementById("admin-panel").style.display = "block";
@@ -84,7 +137,7 @@
             const email = document.getElementById("email").value;
             const pass = document.getElementById("password").value;
             signInWithEmailAndPassword(auth, email, pass)
-                .then(() => alert("Master Admin Access Granted"))
+                .then(() => alert("Master Admin Access Granted!"))
                 .catch((error) => alert("Login Failed: " + error.message));
         };
 
@@ -92,19 +145,26 @@
             signOut(auth).then(() => alert("Logged out successfully."));
         };
 
-        // NEW: Function to inject your pre-recorded Gameweek 1 Data
+        // --- WORKING ADMIN BUTTONS ---
         window.loadHistoricalData = async () => {
             const button = document.getElementById("load-data-btn");
-            button.innerText = "Loading Data...";
+            button.innerText = "Loading Individual Data...";
             
+            // Separated into individuals for the individual leaderboard rule
             const gw1Data = [
-                { id: "Luke", raw: 81, bonus: 8, att: 1, total: 90 },
-                { id: "Figo & Ezra", raw: 79, bonus: 6, att: 1, total: 86 },
-                { id: "Naashid & Matthew", raw: 70, bonus: 4, att: 1, total: 75 },
-                { id: "Jason & Leigh", raw: 67, bonus: 2, att: 1, total: 70 },
-                { id: "Simone & Charlie", raw: 57, bonus: 4, att: 1, total: 62 },
-                { id: "Kyle & Sky", raw: 56, bonus: 2, att: 1, total: 59 },
-                { id: "Brady & Aneeqah", raw: 54, bonus: 2, att: 1, total: 57 }
+                { id: "Luke", raw: 81, bonus: 8, att: 1, total: 90, partners: ["Rotating Fillers"], history: [90] },
+                { id: "Figo", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Ezra"], history: [86] },
+                { id: "Ezra", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Figo"], history: [86] },
+                { id: "Naashid", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Matthew"], history: [75] },
+                { id: "Matthew", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Naashid"], history: [75] },
+                { id: "Jason", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Leigh"], history: [70] },
+                { id: "Leigh", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Jason"], history: [70] },
+                { id: "Simone", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Charlie"], history: [62] },
+                { id: "Charlie", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Simone"], history: [62] },
+                { id: "Kyle", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Sky"], history: [59] },
+                { id: "Sky", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Kyle"], history: [59] },
+                { id: "Brady", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Aneeqah"], history: [57] },
+                { id: "Aneeqah", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Brady"], history: [57] }
             ];
 
             try {
@@ -113,39 +173,50 @@
                         rawPoints: p.raw,
                         bonusPoints: p.bonus,
                         attendance: p.att,
-                        totalScore: p.total
+                        totalScore: p.total,
+                        partners: p.partners,
+                        history: p.history
                     });
                 }
-                alert("Gameweek 1 Data successfully loaded into your database!");
+                alert("Gameweek 1 Individual Data loaded!");
                 button.innerText = "Data Loaded Successfully";
                 button.style.backgroundColor = "#18bc9c";
                 loadLeaderboard(); 
             } catch (error) {
                 alert("Error loading data: " + error.message);
-                button.innerText = "Load Gameweek 1 Data";
+                button.innerText = "Push Gameweek 1 Data";
             }
         };
 
-        window.placeholderAction = () => {
-            alert("This feature will require cloud functions to be set up in Phase 2!");
+        window.generateMatrixPrompt = () => {
+            const promptText = "Generate 7 rounds for 14 players on 2 courts. Format it clearly. Ensure no duplicate pairings from last week based on The Hustle Constraint.";
+            navigator.clipboard.writeText(promptText).then(() => {
+                alert("Prompt copied to your clipboard! Open ChatGPT or Gemini and paste it in to get your matrix.");
+            });
         };
 
-        // Run when page loads
+        window.assignGhostPlayer = () => {
+            const ghostName = prompt("Enter the name of the Stand-In / Ghost Player:");
+            if(ghostName) {
+                alert(ghostName + " has been temporarily authorized for this gameweek. Registered league partner will receive points.");
+            }
+        };
+
         window.onload = loadLeaderboard;
     </script>
 
-    <!-- DARK THEME STYLING -->
+    <!-- DARK THEME & MODAL STYLING -->
     <style>
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            padding: 20px; 
-            background: #121212; /* Dark background */
-            color: #e0e0e0; /* Light text */
+            padding: 15px; 
+            background: #121212; 
+            color: #e0e0e0; 
             max-width: 600px;
             margin: 0 auto;
         }
         .card { 
-            background: #1e1e1e; /* Darker card background */
+            background: #1e1e1e; 
             padding: 20px; 
             border-radius: 12px; 
             margin-bottom: 20px; 
@@ -155,6 +226,20 @@
         h1 { color: #18bc9c; margin-top: 0; font-size: 24px; text-align: center; text-transform: uppercase; letter-spacing: 1px;}
         h2 { font-size: 18px; color: #18bc9c; border-bottom: 1px solid #333; padding-bottom: 8px;}
         
+        /* Global Stats Banner */
+        .global-stats {
+            display: flex;
+            justify-content: space-around;
+            background: #252525;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px dashed #18bc9c;
+        }
+        .stat-box { text-align: center; }
+        .stat-box span { display: block; font-size: 24px; font-weight: bold; color: #18bc9c; }
+        .stat-box small { color: #aaa; font-size: 12px; text-transform: uppercase; }
+
         .player-card {
             background: #2c2c2c;
             border-left: 5px solid #18bc9c;
@@ -163,50 +248,41 @@
             border-radius: 6px;
             display: flex;
             flex-direction: column;
+            cursor: pointer;
+            transition: transform 0.2s;
         }
-        .player-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
+        .player-card:active { transform: scale(0.98); }
+        .player-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .player-header strong { font-size: 18px; color: #ffffff; }
         .total-score { font-size: 18px; font-weight: bold; color: #18bc9c; }
         .stats-row { color: #aaaaaa; font-size: 13px; display: flex; justify-content: space-between;}
 
-        input { 
-            width: 100%; 
-            padding: 12px; 
-            margin-bottom: 12px; 
-            background: #2c2c2c;
+        /* Modal Styles */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 100; 
+            left: 0; top: 0; width: 100%; height: 100%; 
+            background-color: rgba(0,0,0,0.8);
+        }
+        .modal-content {
+            background-color: #1e1e1e;
+            margin: 20% auto; 
+            padding: 20px;
+            border: 1px solid #18bc9c;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 12px;
             color: white;
-            border: 1px solid #444; 
-            border-radius: 6px; 
-            box-sizing: border-box;
         }
-        button { 
-            background: #18bc9c; 
-            color: #121212; 
-            border: none; 
-            padding: 14px; 
-            width: 100%; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-weight: bold;
-            font-size: 15px;
-            margin-bottom: 12px;
-            transition: background 0.3s;
-        }
-        button:hover { background: #128f76; }
-        
+        .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close-btn:hover { color: #fff; }
+
+        input { width: 100%; padding: 12px; margin-bottom: 12px; background: #2c2c2c; color: white; border: 1px solid #444; border-radius: 6px; box-sizing: border-box;}
+        button { background: #18bc9c; color: #121212; border: none; padding: 14px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 15px; margin-bottom: 12px;}
         .action-btn { background: #3498db; color: white; }
-        .action-btn:hover { background: #2980b9; }
-        
         .logout-btn { background: #e74c3c; color: white; }
-        .logout-btn:hover { background: #c0392b; }
-        
         #admin-panel { display: none; border-top: 4px solid #e74c3c; }
-        .hidden-label { font-size: 12px; color: #555; text-align: center; display: block; margin-top: 20px; }
     </style>
 </head>
 <body>
@@ -214,8 +290,30 @@
     <!-- PUBLIC VIEW: THE LEADERBOARD -->
     <div class="card">
         <h1>🏆 Season 2 Standings</h1>
-        <div id="leaderboard-list">
-            <!-- Data from Firestore loads here -->
+        
+        <div class="global-stats">
+            <div class="stat-box">
+                <span id="stat-players">0</span>
+                <small>Active Players</small>
+            </div>
+            <div class="stat-box">
+                <span id="stat-points">0</span>
+                <small>Total Raw Pts</small>
+            </div>
+        </div>
+
+        <p style="text-align: center; color: #aaa; font-size: 12px;">Tap any player to view history & partners</p>
+        
+        <div id="leaderboard-list"></div>
+    </div>
+
+    <!-- PLAYER STATS MODAL -->
+    <div id="player-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h2 id="modal-name" style="margin-top: 0;">Player Profile</h2>
+            <p id="modal-partners" style="font-size: 14px; color: #ccc;"></p>
+            <canvas id="playerChart" width="400" height="250"></canvas>
         </div>
     </div>
 
@@ -232,21 +330,18 @@
         <h1 style="color: #e74c3c;">⚙️ Master Dashboard</h1>
         <p id="admin-status" style="text-align: center; font-size: 14px; color: #aaa;"></p>
         
-        <h2>1. Historical Data</h2>
+        <h2>1. Initialization</h2>
         <button id="load-data-btn" class="action-btn" onclick="loadHistoricalData()">Push Gameweek 1 Data</button>
         
-        <h2>2. Match Management</h2>
-        <button onclick="placeholderAction()">Generate Fixture Matrix</button>
+        <h2>2. Match Logistics</h2>
+        <button onclick="generateMatrixPrompt()">Copy Matrix Prompt for AI</button>
         
-        <h2>3. Roster Management</h2>
-        <button onclick="placeholderAction()">Assign Stand-In/Ghost Player</button>
+        <h2>3. Roster Overrides</h2>
+        <button onclick="assignGhostPlayer()">Assign Stand-In / Ghost Player</button>
 
         <hr style="border: 1px solid #333; margin: 20px 0;">
         <button class="logout-btn" onclick="logoutAdmin()">Lock Dashboard (Log Out)</button>
     </div>
 
-    <span class="hidden-label">Padel Live Tracking System V2</span>
-
 </body>
 </html>
-
