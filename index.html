@@ -1,14 +1,12 @@
-            <!DOCTYPE html>
+               <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Padel Season 2 Hub</title>
     
-    <!-- CHART.JS FOR GRAPHS -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- FIREBASE IMPORT SCRIPTS -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
         import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch, increment } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
@@ -36,7 +34,7 @@
         let activeTeamsList = []; 
 
         // --- CORE DATA LOADING ---
-        async function loadAllData() {
+        window.loadAllData = async () => {
             document.getElementById("leaderboard-list").innerHTML = "<p style='text-align:center;'>Loading live data...</p>";
             
             try {
@@ -68,7 +66,7 @@
             } catch (error) {
                 console.error("Error loading data:", error);
             }
-        }
+        };
 
         // --- RENDER LEADERBOARD & ROSTERS ---
         function renderLeaderboard() {
@@ -76,7 +74,7 @@
             let activeTeams = [];
             let freeAgents = [];
             let processedPairs = new Set();
-            activeTeamsList = []; // Reset for admin dropdown
+            activeTeamsList = []; 
 
             globalPlayersData.sort((a, b) => b.totalScore - a.totalScore); 
 
@@ -139,7 +137,6 @@
                         <p style="text-align:center; color:#f39c12; font-size:12px; margin: 10px 0 0 0;">Under Admin Review ⏳</p>
                     </div>`;
                     
-                    // Admin Approval Card
                     approvalsHtml += `
                     <div class="match-card" style="border-left: 4px solid #f39c12;">
                         <p style="margin:0 0 10px 0; font-size:14px;"><b>${teamAStr}</b> (${m.scoreA}) vs <b>${teamBStr}</b> (${m.scoreB})</p>
@@ -199,47 +196,35 @@
             } catch (error) { alert("Error: " + error.message); }
         };
 
-        // --- ADMIN SCORE APPROVAL (THE ALGORITHM) ---
+        // --- ADMIN SCORE APPROVAL ---
         window.approveScore = async (matchId) => {
             const match = globalMatchesData.find(m => m.id === matchId);
             if(!match) return;
 
             let bonusA = 0, bonusB = 0;
-            // Win/Tie Bonus
             if (match.scoreA > match.scoreB) bonusA += 2;
             else if (match.scoreB > match.scoreA) bonusB += 2;
             else { bonusA += 1; bonusB += 1; }
 
-            // Clean Sheet Bonus
             if (match.scoreA > 0 && match.scoreB === 0) bonusA += 1;
             if (match.scoreB > 0 && match.scoreA === 0) bonusB += 1;
 
             try {
                 const batch = writeBatch(db);
                 
-                // Update Team A Players
                 match.teamA.forEach(playerId => {
                     batch.update(doc(db, "players", playerId), {
-                        rawPoints: increment(match.scoreA),
-                        bonusPoints: increment(bonusA),
-                        attendance: increment(1),
-                        totalScore: increment(match.scoreA + bonusA + 1)
+                        rawPoints: increment(match.scoreA), bonusPoints: increment(bonusA), attendance: increment(1), totalScore: increment(match.scoreA + bonusA + 1)
                     });
                 });
 
-                // Update Team B Players
                 match.teamB.forEach(playerId => {
                     batch.update(doc(db, "players", playerId), {
-                        rawPoints: increment(match.scoreB),
-                        bonusPoints: increment(bonusB),
-                        attendance: increment(1),
-                        totalScore: increment(match.scoreB + bonusB + 1)
+                        rawPoints: increment(match.scoreB), bonusPoints: increment(bonusB), attendance: increment(1), totalScore: increment(match.scoreB + bonusB + 1)
                     });
                 });
 
-                // Set Match to Confirmed
                 batch.update(doc(db, "matches", matchId), { status: "confirmed" });
-
                 await batch.commit();
                 alert("Score Approved & Leaderboard Updated!");
                 loadAllData();
@@ -254,10 +239,33 @@
             } catch (error) { alert("Error: " + error.message); }
         };
 
-        // --- ADMIN FIXTURE CREATION ---
+        // --- NEW: ADD PLAYER DYNAMICALLY ---
+        window.addNewPlayer = async () => {
+            const nameInput = document.getElementById("new-player-name").value.trim();
+            if(!nameInput) return alert("Please enter a player name.");
+            
+            // Check for duplicates
+            if(globalPlayersData.find(p => p.id.toLowerCase() === nameInput.toLowerCase())) {
+                return alert("A player with this name already exists.");
+            }
+
+            try {
+                await setDoc(doc(db, "players", nameInput), {
+                    rawPoints: 0, bonusPoints: 0, attendance: 0, totalScore: 0,
+                    history: [], partners: [], currentPartner: null, isFreeAgent: false
+                });
+                alert(`${nameInput} successfully added to the database!`);
+                document.getElementById("new-player-name").value = "";
+                loadAllData();
+            } catch (error) { alert("Error: " + error.message); }
+        };
+
         function populateAdminDropdowns() {
             let pOptions = '<option value="">-- Select Player --</option>';
-            globalPlayersData.forEach(p => pOptions += `<option value="${p.id}">${p.id}</option>`);
+            // Sort names alphabetically for the dropdowns
+            let sortedPlayers = [...globalPlayersData].sort((a,b) => a.id.localeCompare(b.id));
+            sortedPlayers.forEach(p => pOptions += `<option value="${p.id}">${p.id}</option>`);
+            
             document.getElementById('team-p1').innerHTML = pOptions;
             document.getElementById('team-p2').innerHTML = pOptions;
             document.getElementById('fa-player').innerHTML = pOptions;
@@ -293,7 +301,6 @@
             } catch (error) { alert("Error: " + error.message); }
         };
 
-        // --- ADMIN CLEAR DATA ---
         window.clearMatchesByStatus = async (status) => {
             if(!confirm(`Are you sure you want to delete all ${status} matches?`)) return;
             try {
@@ -307,7 +314,7 @@
             } catch (error) { alert("Error: " + error.message); }
         };
 
-        // --- PLAYER MODAL (Historical) ---
+        // --- MODAL AND AUTH ---
         window.openPlayerModal = (playerId) => {
             const player = globalPlayersData.find(p => p.id === playerId);
             if(!player) return;
@@ -318,12 +325,10 @@
         };
         window.closeModal = () => document.getElementById("player-modal").style.display = "none";
 
-        // --- ADMIN AUTH & OLD CONTROLS ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 document.getElementById("admin-panel").style.display = "block";
                 document.getElementById("login-section").style.display = "none";
-                document.getElementById("admin-status").innerText = `Logged in as: ${user.email}`;
             } else {
                 document.getElementById("admin-panel").style.display = "none";
                 document.getElementById("login-section").style.display = "block";
@@ -356,20 +361,82 @@
             await batch.commit(); loadAllData();
         };
 
+        // --- NEW: INJECT FULL GW1 DATA (INCLUDING MATCHES AND JODIE) ---
+        window.loadHistoricalData = async () => {
+            const button = document.getElementById("load-data-btn");
+            button.innerText = "Injecting Profiles & Matches...";
+            
+            // Includes Jodie as Luke's partner
+            const gw1Data = [
+                { id: "Luke", raw: 81, bonus: 8, att: 1, total: 90, partners: ["Jodie"], history: [90] },
+                { id: "Jodie", raw: 0, bonus: 0, att: 0, total: 0, partners: ["Luke"], history: [0] },
+                { id: "Figo", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Ezra"], history: [86] },
+                { id: "Ezra", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Figo"], history: [86] },
+                { id: "Naashid", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Matthew"], history: [75] },
+                { id: "Matthew", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Naashid"], history: [75] },
+                { id: "Jason", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Leigh"], history: [70] },
+                { id: "Leigh", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Jason"], history: [70] },
+                { id: "Simone", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Charlie"], history: [62] },
+                { id: "Charlie", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Simone"], history: [62] },
+                { id: "Kyle", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Sky"], history: [59] },
+                { id: "Sky", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Kyle"], history: [59] },
+                { id: "Brady", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Aneeqah"], history: [57] },
+                { id: "Aneeqah", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Brady"], history: [57] }
+            ];
+
+            const gw1Matches = [
+                { id: "gw1_m1", teamA: ["Figo", "Ezra"], teamB: ["Naashid", "Matthew"], scoreA: 21, scoreB: 17, status: "confirmed" },
+                { id: "gw1_m2", teamA: ["Brady", "Aneeqah"], teamB: ["Simone", "Charlie"], scoreA: 18, scoreB: 15, status: "confirmed" },
+                { id: "gw1_m3", teamA: ["Luke", "Jodie"], teamB: ["Kyle", "Sky"], scoreA: 26, scoreB: 9, status: "confirmed" },
+                { id: "gw1_m4", teamA: ["Jason", "Leigh"], teamB: ["Brady", "Aneeqah"], scoreA: 20, scoreB: 15, status: "confirmed" },
+                { id: "gw1_m5", teamA: ["Naashid", "Matthew"], teamB: ["Jason", "Leigh"], scoreA: 23, scoreB: 16, status: "confirmed" },
+                { id: "gw1_m6", teamA: ["Figo", "Ezra"], teamB: ["Simone", "Charlie"], scoreA: 26, scoreB: 5, status: "confirmed" },
+                { id: "gw1_m7", teamA: ["Luke", "Jodie"], teamB: ["Figo", "Ezra"], scoreA: 22, scoreB: 15, status: "confirmed" },
+                { id: "gw1_m8", teamA: ["Simone", "Charlie"], teamB: ["Kyle", "Sky"], scoreA: 20, scoreB: 17, status: "confirmed" },
+                { id: "gw1_m9", teamA: ["Luke", "Jodie"], teamB: ["Brady", "Aneeqah"], scoreA: 17, scoreB: 7, status: "confirmed" },
+                { id: "gw1_m10", teamA: ["Kyle", "Sky"], teamB: ["Jason", "Leigh"], scoreA: 16, scoreB: 10, status: "confirmed" },
+                { id: "gw1_m11", teamA: ["Luke", "Jodie"], teamB: ["Naashid", "Matthew"], scoreA: 16, scoreB: 10, status: "confirmed" },
+                { id: "gw1_m12", teamA: ["Simone", "Charlie"], teamB: ["Jason", "Leigh"], scoreA: 17, scoreB: 11, status: "confirmed" },
+                { id: "gw1_m13", teamA: ["Naashid", "Matthew"], teamB: ["Kyle", "Sky"], scoreA: 20, scoreB: 14, status: "confirmed" },
+                { id: "gw1_m14", teamA: ["Figo", "Ezra"], teamB: ["Brady", "Aneeqah"], scoreA: 17, scoreB: 14, status: "confirmed" }
+            ];
+
+            try {
+                const batch = writeBatch(db);
+                // Push Players
+                for (const p of gw1Data) {
+                    const playerRef = doc(db, "players", p.id);
+                    batch.set(playerRef, {
+                        rawPoints: p.raw, bonusPoints: p.bonus, attendance: p.att, totalScore: p.total,
+                        partners: p.partners, history: p.history, currentPartner: null, isFreeAgent: false
+                    });
+                }
+                // Push Match Data to Results Tab
+                for (const m of gw1Matches) {
+                    const matchRef = doc(db, "matches", m.id);
+                    batch.set(matchRef, {
+                        teamA: m.teamA, teamB: m.teamB, scoreA: m.scoreA, scoreB: m.scoreB, status: m.status
+                    });
+                }
+                await batch.commit();
+                alert("Gameweek 1 Profiles AND Match Results delivered!");
+                button.innerText = "Push GW1 Data";
+                loadAllData(); 
+            } catch (error) { alert("Error: " + error.message); }
+        };
+
         window.onload = () => {
             loadAllData();
             switchTab('leaderboard'); 
         };
     </script>
 
-    <!-- STYLING -->
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; background: #121212; color: #e0e0e0; max-width: 600px; margin: 0 auto; }
         .card { background: #1e1e1e; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #333; }
         h1 { color: #18bc9c; margin-top: 0; font-size: 24px; text-align: center; text-transform: uppercase;}
         h2 { font-size: 16px; color: #18bc9c; border-bottom: 1px solid #333; padding-bottom: 8px; margin-top: 20px;}
         
-        /* TABS */
         .tab-container { display: flex; justify-content: space-between; margin-bottom: 15px; background: #1a1a1a; border-radius: 8px; overflow: hidden; border: 1px solid #333;}
         .tab-btn { flex: 1; text-align: center; padding: 12px 5px; font-size: 13px; font-weight: bold; background: transparent; color: #aaa; border: none; cursor: pointer; transition: 0.3s; margin:0;}
         .active-tab { background: #18bc9c; color: #121212; }
@@ -408,14 +475,12 @@
 </head>
 <body>
 
-    <!-- NAVIGATION TABS -->
     <div class="tab-container">
         <button id="btn-leaderboard" class="tab-btn" onclick="switchTab('leaderboard')">🏆 Standings</button>
         <button id="btn-fixtures" class="tab-btn" onclick="switchTab('fixtures')">🎾 Fixtures</button>
         <button id="btn-results" class="tab-btn" onclick="switchTab('results')">📋 Results</button>
     </div>
 
-    <!-- TAB 1: LEADERBOARD -->
     <div id="tab-leaderboard" class="card">
         <div class="global-stats">
             <div class="stat-box"><span id="stat-players">0</span><small>Active</small></div>
@@ -433,20 +498,17 @@
         <div id="leaderboard-list"></div>
     </div>
 
-    <!-- TAB 2: FIXTURES (Public Score Input) -->
     <div id="tab-fixtures" class="card" style="display:none;">
         <h2 style="margin-top:0;">Live Matches</h2>
         <p style="font-size:12px; color:#aaa;">Tap "Input Score" when the match finishes.</p>
         <div id="fixtures-list"></div>
     </div>
 
-    <!-- TAB 3: RESULTS -->
     <div id="tab-results" class="card" style="display:none;">
         <h2 style="margin-top:0;">Completed Matches</h2>
         <div id="results-list"></div>
     </div>
 
-    <!-- PLAYER STATS MODAL -->
     <div id="player-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="closeModal()">&times;</span>
@@ -455,7 +517,6 @@
         </div>
     </div>
 
-    <!-- ADMIN LOGIN -->
     <div class="card" id="login-section">
         <h2 style="margin-top: 0;">Admin Access</h2>
         <input type="email" id="email" placeholder="Admin Email">
@@ -463,21 +524,17 @@
         <button onclick="loginAdmin()">Unlock Dashboard</button>
     </div>
 
-    <!-- HIDDEN ADMIN DASHBOARD -->
     <div class="card" id="admin-panel">
         <h1 style="color: #e74c3c; font-size: 20px;">⚙️ Master Dashboard</h1>
         
-        <!-- SCORE APPROVALS QUEUE -->
         <div id="admin-approvals">
             <h3 style="color:#e74c3c; margin-top:0;">🚨 Pending Approvals</h3>
-            <!-- Played matches populate here for approval -->
         </div>
 
-        <h2>1. Create Live Fixture</h2>
-        <p style="font-size:12px; color:#aaa;">Pair two active teams for a match.</p>
-        <select id="fix-teamA"></select>
-        <select id="fix-teamB"></select>
-        <button class="action-btn" onclick="createFixture()">Launch Fixture</button>
+        <h2>1. Player Management</h2>
+        <p style="font-size:12px; color:#aaa; margin-top:0;">Add a new player to the database dropdowns.</p>
+        <input type="text" id="new-player-name" placeholder="Enter new player's name (e.g. John)">
+        <button class="action-btn" style="margin-top:0;" onclick="addNewPlayer()">Add New Player</button>
 
         <h2>2. Build Tonight's Roster</h2>
         <select id="team-p1"></select>
@@ -486,7 +543,13 @@
         <select id="fa-player" style="margin-top:10px;"></select>
         <button class="warning-btn" onclick="makeFreeAgent()">Set as Free Agent</button>
 
-        <h2>3. Data Controls & Resets</h2>
+        <h2>3. Create Live Fixture</h2>
+        <select id="fix-teamA"></select>
+        <select id="fix-teamB"></select>
+        <button class="action-btn" onclick="createFixture()">Launch Fixture</button>
+
+        <h2>4. Data Controls & Resets</h2>
+        <button id="load-data-btn" style="background: #27ae60; color: white;" onclick="loadHistoricalData()">Push GW1 Historical Data</button>
         <button class="warning-btn" onclick="clearGameweekRoster()">Clear Tonight's Roster</button>
         <button class="danger-btn" onclick="clearMatchesByStatus('pending')">Delete Unplayed Fixtures</button>
         <button class="danger-btn" onclick="clearMatchesByStatus('confirmed')">Clear Old Results</button>
@@ -497,5 +560,4 @@
 
 </body>
 </html>
-                                        background: #252525;
-            
+                                                         totalScore: increment(match.scoreB + bonusB + 1)
