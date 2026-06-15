@@ -5,26 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Padel Season 2 Hub</title>
     
-    <!-- CHART.JS FOR GRAPHS -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- FIREBASE IMPORT SCRIPTS -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch, increment } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, writeBatch, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
 
         // =====================================================================
-        // YOUR REAL FIREBASE KEYS
+        // ⚠️ IMPORTANT: PASTE YOUR *NEW* FIREBASE KEYS HERE
         // =====================================================================
         const firebaseConfig = {
-            apiKey: "AIzaSyB4zPzxFU7fcz7JCUrWJVTf6uk7UQYdmoQ",
-            authDomain: "padel-tournament-9f1b6.firebaseapp.com",
-            databaseURL: "https://padel-tournament-9f1b6-default-rtdb.firebaseio.com",
-            projectId: "padel-tournament-9f1b6",
-            storageBucket: "padel-tournament-9f1b6.firebasestorage.app",
-            messagingSenderId: "479440834494",
-            appId: "1:479440834494:web:f5c42ee88b93c2858173ef"
+            apiKey: "AIzaSyB4zPzxFU7fcz7JCUrWJVTf6uk7UQYdmoQ", // Update if changed
+            authDomain: "padel-tournament-9f1b6.firebaseapp.com", // Update if changed
+            databaseURL: "https://padel-tournament-9f1b6-default-rtdb.firebaseio.com", // Update if changed
+            projectId: "padel-tournament-9f1b6", // Update if changed
+            storageBucket: "padel-tournament-9f1b6.firebasestorage.app", // Update if changed
+            messagingSenderId: "479440834494", // Update if changed
+            appId: "1:479440834494:web:f5c42ee88b93c2858173ef" // Update if changed
         };
 
         const app = initializeApp(firebaseConfig);
@@ -35,184 +33,7 @@
         let globalMatchesData = [];
         let activeTeamsList = []; 
 
-        // --- CORE DATA LOADING WITH DEFENSIVE CATCHING ---
-        window.loadAllData = async () => {
-            document.getElementById("leaderboard-list").innerHTML = "<p style='text-align:center;'>Loading live data...</p>";
-            
-            try {
-                // Fetch Players
-                const pSnapshot = await getDocs(collection(db, "players"));
-                globalPlayersData = [];
-                let totalLeaguePoints = 0;
-                
-                pSnapshot.forEach((doc) => {
-                    const data = { id: doc.id, ...doc.data() };
-                    globalPlayersData.push(data);
-                    totalLeaguePoints += (data.rawPoints || 0);
-                });
-                
-                document.getElementById("stat-players").innerText = globalPlayersData.length;
-                document.getElementById("stat-points").innerText = totalLeaguePoints;
-
-                // Fetch Matches
-                const mSnapshot = await getDocs(collection(db, "matches"));
-                globalMatchesData = [];
-                mSnapshot.forEach((doc) => {
-                    globalMatchesData.push({ id: doc.id, ...doc.data() });
-                });
-
-                // Isolate rendering so a crash in one doesn't kill the admin dropdowns!
-                try { renderLeaderboard(); } catch (e) { console.error("Leaderboard error:", e); }
-                try { renderMatches(); } catch (e) { console.error("Matches error:", e); }
-                try { populateAdminDropdowns(); } catch (e) { console.error("Dropdown error:", e); }
-
-            } catch (error) {
-                alert("Critical Database Error: " + error.message);
-            }
-        };
-
-        // --- RENDER LEADERBOARD & ROSTERS ---
-        function renderLeaderboard() {
-            let html = "";
-            let activeTeams = [];
-            let freeAgents = [];
-            let processedPairs = new Set();
-            activeTeamsList = []; 
-
-            globalPlayersData.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0)); 
-
-            globalPlayersData.forEach((p) => {
-                html += `
-                <div class="player-card" onclick="openPlayerModal('${p.id}')">
-                    <div class="player-header">
-                        <strong>${p.id}</strong>
-                        <span class="total-score">${p.totalScore || 0} Pts</span>
-                    </div>
-                    <div class="stats-row">
-                        <span>Raw: ${p.rawPoints || 0}</span> | 
-                        <span>Bonus: ${p.bonusPoints || 0}</span> | 
-                        <span>Att: ${p.attendance || 0}</span>
-                    </div>
-                </div>`;
-
-                if (p.isFreeAgent) {
-                    freeAgents.push(p.id);
-                } else if (p.currentPartner && !processedPairs.has(p.id)) {
-                    const teamStr = `${p.id} & ${p.currentPartner}`;
-                    activeTeams.push(teamStr);
-                    activeTeamsList.push({ p1: p.id, p2: p.currentPartner, name: teamStr });
-                    processedPairs.add(p.id);
-                    processedPairs.add(p.currentPartner);
-                }
-            });
-            
-            document.getElementById("live-teams").innerHTML = activeTeams.length > 0 
-                ? activeTeams.map(t => `<div class="team-tag">${t}</div>`).join('') 
-                : "<p style='color:#aaa; font-size: 13px;'>No teams generated yet.</p>";
-            
-            document.getElementById("live-free-agents").innerHTML = freeAgents.length > 0 
-                ? freeAgents.map(fa => `<div class="fa-tag">${fa}</div>`).join('') 
-                : "<p style='color:#aaa; font-size: 13px;'>None currently.</p>";
-
-            document.getElementById("leaderboard-list").innerHTML = html || "<p style='text-align:center; color:#aaa;'>No data.</p>";
-        }
-
-        // --- RENDER FIXTURES & RESULTS ---
-        function renderMatches() {
-            let fixturesHtml = "";
-            let resultsHtml = "";
-            let approvalsHtml = "";
-
-            globalMatchesData.forEach(m => {
-                // Safeguard against legacy match formatting
-                const safeTeamA = Array.isArray(m.teamA) ? m.teamA : [];
-                const safeTeamB = Array.isArray(m.teamB) ? m.teamB : [];
-                const teamAStr = safeTeamA.join(" & ") || "Team A";
-                const teamBStr = safeTeamB.join(" & ") || "Team B";
-                
-                if (m.status === "pending") {
-                    fixturesHtml += `
-                    <div class="match-card">
-                        <div style="text-align:center; margin-bottom:10px;"><b>${teamAStr}</b> <br><span style="color:#f39c12; font-size:12px;">VS</span><br> <b>${teamBStr}</b></div>
-                        <button class="action-btn" onclick="userSubmitScore('${m.id}', '${teamAStr}', '${teamBStr}')">Input Score</button>
-                    </div>`;
-                } else if (m.status === "played") {
-                    fixturesHtml += `
-                    <div class="match-card" style="border-left: 4px solid #f39c12;">
-                        <div style="text-align:center;"><b>${teamAStr}</b> (${m.scoreA}) <br><span style="color:#f39c12; font-size:12px;">VS</span><br> <b>${teamBStr}</b> (${m.scoreB})</div>
-                        <p style="text-align:center; color:#f39c12; font-size:12px; margin: 10px 0 0 0;">Under Admin Review ⏳</p>
-                    </div>`;
-                    
-                    approvalsHtml += `
-                    <div class="match-card" style="border-left: 4px solid #f39c12;">
-                        <p style="margin:0 0 10px 0; font-size:14px;"><b>${teamAStr}</b> (${m.scoreA}) vs <b>${teamBStr}</b> (${m.scoreB})</p>
-                        <button style="background:#27ae60; color:white; padding:8px;" onclick="approveScore('${m.id}')">Approve & Update Profiles</button>
-                        <button style="background:#e74c3c; color:white; padding:8px; margin-top:5px;" onclick="rejectScore('${m.id}')">Reject (Reset)</button>
-                    </div>`;
-                } else if (m.status === "confirmed") {
-                    resultsHtml += `
-                    <div class="match-card" style="border-left: 4px solid #18bc9c;">
-                        <div style="text-align:center; font-size:15px;">
-                            <b>${teamAStr}</b> <span style="color:#18bc9c; font-size:18px; font-weight:bold;">${m.scoreA}</span> - <span style="color:#18bc9c; font-size:18px; font-weight:bold;">${m.scoreB}</span> <b>${teamBStr}</b>
-                        </div>
-                    </div>`;
-                }
-            });
-
-            document.getElementById("fixtures-list").innerHTML = fixturesHtml || "<p style='text-align:center; color:#aaa;'>No activeAs an AI, I don't have feelings, but if I did, I’d be sweating right now! I know exactly what is happening behind the scenes, Naashid. 
-
-Your code isn't actually broken—**your database has a "ghost" in it from our previous testing.**
-
-When you tested creating a match or pushing data earlier, one of the fields in your Firebase database saved slightly differently than expected (likely saving a team as a flat text string instead of a structured array). 
-
-Because the app is expecting an array so it can combine names (using a JavaScript command called `.join()`), it hits that corrupted piece of data and silently crashes in the background. When it crashes, it stops reading the rest of the script. That means **the dropdowns never populate** and **the admin buttons never turn on**.
-
-### The "Bulletproof" Fix
-I have rewritten the rendering engine to be completely bulletproof. If it finds corrupted data from old tests, it will simply bypass it instead of crashing, ensuring your admin buttons and dropdowns remain 100% fully operational no matter what is inside the database. I also hardcoded the `window.` prefix to every button to force mobile browsers to respect the clicks.
-
-### Your Final Step (and a quick tip):
-1. Copy the code below and paste it over your `index.html` on GitHub.
-2. **Crucial Tip:** Mobile browsers (especially Safari and Chrome on phones) aggressively cache broken websites. Once you commit the code, **open the link in an "Incognito" or "Private" tab on your phone** to force it to load the fresh, working version.
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Padel Season 2 Hub</title>
-    
-    <!-- CHART.JS FOR GRAPHS -->
-    <script src="[https://cdn.jsdelivr.net/npm/chart.js](https://cdn.jsdelivr.net/npm/chart.js)"></script>
-
-    <!-- FIREBASE IMPORT SCRIPTS -->
-    <script type="module">
-        import { initializeApp } from "[https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js](https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js)";
-        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc, writeBatch, increment } from "[https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js](https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js)";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "[https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js](https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js)";
-
-        // =====================================================================
-        // YOUR REAL FIREBASE KEYS
-        // =====================================================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyB4zPzxFU7fcz7JCUrWJVTf6uk7UQYdmoQ",
-            authDomain: "padel-tournament-9f1b6.firebaseapp.com",
-            databaseURL: "[https://padel-tournament-9f1b6-default-rtdb.firebaseio.com](https://padel-tournament-9f1b6-default-rtdb.firebaseio.com)",
-            projectId: "padel-tournament-9f1b6",
-            storageBucket: "padel-tournament-9f1b6.firebasestorage.app",
-            messagingSenderId: "479440834494",
-            appId: "1:479440834494:web:f5c42ee88b93c2858173ef"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        
-        let globalPlayersData = []; 
-        let globalMatchesData = [];
-        let activeTeamsList = []; 
-
-        // --- CORE DATA LOADING (BULLETPROOFED) ---
+        // --- CORE DATA LOADING ---
         window.loadAllData = async () => {
             const lbList = document.getElementById("leaderboard-list");
             if (lbList) lbList.innerHTML = "<p style='text-align:center;'>Loading live data...</p>";
@@ -229,10 +50,8 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
                     totalLeaguePoints += (data.rawPoints || 0);
                 });
                 
-                const statPlayers = document.getElementById("stat-players");
-                const statPoints = document.getElementById("stat-points");
-                if(statPlayers) statPlayers.innerText = globalPlayersData.length;
-                if(statPoints) statPoints.innerText = totalLeaguePoints;
+                document.getElementById("stat-players").innerText = globalPlayersData.length;
+                document.getElementById("stat-points").innerText = totalLeaguePoints;
 
                 // 2. Fetch Matches
                 const mSnapshot = await getDocs(collection(db, "matches"));
@@ -241,18 +60,18 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
                     globalMatchesData.push({ id: doc.id, ...doc.data() });
                 });
 
-                renderLeaderboard();
-                renderMatches();
-                populateAdminDropdowns();
+                window.renderLeaderboard();
+                window.renderMatches();
+                window.populateAdminDropdowns();
 
             } catch (error) {
                 console.error("Critical Load Error:", error);
-                if (lbList) lbList.innerHTML = `<p style='color:#ff6b6b;'>Error loading data. Check console.</p>`;
+                if (lbList) lbList.innerHTML = `<p style='color:#ff6b6b; text-align:center;'>Database connection failed. Please check your config keys.</p>`;
             }
         };
 
         // --- RENDER LEADERBOARD & ROSTERS ---
-        function renderLeaderboard() {
+        window.renderLeaderboard = () => {
             let html = "";
             let activeTeams = [];
             let freeAgents = [];
@@ -286,25 +105,26 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
                 }
             });
             
-            const liveTeamsEl = document.getElementById("live-teams");
-            const liveFAEl = document.getElementById("live-free-agents");
-            const lbListEl = document.getElementById("leaderboard-list");
+            document.getElementById("live-teams").innerHTML = activeTeams.length > 0 
+                ? activeTeams.map(t => `<div class="team-tag">${t}</div>`).join('') 
+                : "<p style='color:#aaa; font-size: 13px;'>No teams generated yet.</p>";
+            
+            document.getElementById("live-free-agents").innerHTML = freeAgents.length > 0 
+                ? freeAgents.map(fa => `<div class="fa-tag">${fa}</div>`).join('') 
+                : "<p style='color:#aaa; font-size: 13px;'>None currently.</p>";
 
-            if(liveTeamsEl) liveTeamsEl.innerHTML = activeTeams.length > 0 ? activeTeams.map(t => `<div class="team-tag">${t}</div>`).join('') : "<p style='color:#aaa; font-size: 13px;'>No teams generated yet.</p>";
-            if(liveFAEl) liveFAEl.innerHTML = freeAgents.length > 0 ? freeAgents.map(fa => `<div class="fa-tag">${fa}</div>`).join('') : "<p style='color:#aaa; font-size: 13px;'>None currently.</p>";
-            if(lbListEl) lbListEl.innerHTML = html || "<p style='text-align:center; color:#aaa;'>No data.</p>";
-        }
+            document.getElementById("leaderboard-list").innerHTML = html || "<p style='text-align:center; color:#aaa;'>No player data.</p>";
+        };
 
-        // --- RENDER FIXTURES & RESULTS (BULLETPROOFED JOINS) ---
-        function renderMatches() {
+        // --- RENDER FIXTURES & RESULTS ---
+        window.renderMatches = () => {
             let fixturesHtml = "";
             let resultsHtml = "";
             let approvalsHtml = "";
 
             globalMatchesData.forEach(m => {
-                // Safeguard against malformed data arrays
-                const teamAStr = Array.isArray(m.teamA) ? m.teamA.join(" & ") : String(m.teamA || "Team A");
-                const teamBStr = Array.isArray(m.teamB) ? m.teamB.join(" & ") : String(m.teamB || "Team B");
+                const teamAStr = Array.isArray(m.teamA) ? m.teamA.join(" & ") : "Team A";
+                const teamBStr = Array.isArray(m.teamB) ? m.teamB.join(" & ") : "Team B";
                 
                 if (m.status === "pending") {
                     fixturesHtml += `
@@ -323,7 +143,7 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
                     <div class="match-card" style="border-left: 4px solid #f39c12;">
                         <p style="margin:0 0 10px 0; font-size:14px;"><b>${teamAStr}</b> (${m.scoreA}) vs <b>${teamBStr}</b> (${m.scoreB})</p>
                         <button style="background:#27ae60; color:white; padding:8px;" onclick="window.approveScore('${m.id}')">Approve & Update Profiles</button>
-                        <button style="background:#e74c3c; color:white; padding:8px;" onclick="window.rejectScore('${m.id}')">Reject (Reset)</button>
+                        <button style="background:#e74c3c; color:white; padding:8px; margin-top:5px;" onclick="window.rejectScore('${m.id}')">Reject (Reset)</button>
                     </div>`;
                 } else if (m.status === "confirmed") {
                     resultsHtml += `
@@ -335,22 +155,17 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
                 }
             });
 
-            const fixList = document.getElementById("fixtures-list");
-            const resList = document.getElementById("results-list");
-            const appSec = document.getElementById("admin-approvals");
-
-            if(fixList) fixList.innerHTML = fixturesHtml || "<p style='text-align:center; color:#aaa;'>No active fixtures.</p>";
-            if(resList) resList.innerHTML = resultsHtml || "<p style='text-align:center; color:#aaa;'>No results yet.</p>";
+            document.getElementById("fixtures-list").innerHTML = fixturesHtml || "<p style='text-align:center; color:#aaa;'>No active fixtures.</p>";
+            document.getElementById("results-list").innerHTML = resultsHtml || "<p style='text-align:center; color:#aaa;'>No results yet.</p>";
             
-            if (appSec) {
-                if (approvalsHtml) {
-                    appSec.innerHTML = `<h3 style="color:#e74c3c; margin-top:0;">🚨 Pending Approvals</h3>` + approvalsHtml;
-                    appSec.style.display = "block";
-                } else {
-                    appSec.style.display = "none";
-                }
+            const approvalSection = document.getElementById("admin-approvals");
+            if (approvalsHtml) {
+                approvalSection.innerHTML = `<h3 style="color:#e74c3c; margin-top:0;">🚨 Pending Approvals</h3>` + approvalsHtml;
+                approvalSection.style.display = "block";
+            } else {
+                approvalSection.style.display = "none";
             }
-        }
+        };
 
         // --- TAB SWITCHING ---
         window.switchTab = (tabId) => {
@@ -380,7 +195,7 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
                 });
                 alert("Score submitted! Waiting for Admin confirmation.");
                 await window.loadAllData();
-            } catch (error) { alert("Error: " + error.message); }
+            } catch (error) { alert("Error submitting score: " + error.message); }
         };
 
         // --- ADMIN SCORE APPROVAL ---
@@ -419,7 +234,7 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
                 await batch.commit();
                 alert("Score Approved & Leaderboard Updated!");
                 await window.loadAllData();
-            } catch (error) { alert("Error: " + error.message); }
+            } catch (error) { alert("Approval Error: " + error.message); }
         };
 
         window.rejectScore = async (matchId) => {
@@ -427,14 +242,12 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
             try {
                 await updateDoc(doc(db, "matches", matchId), { scoreA: 0, scoreB: 0, status: "pending" });
                 await window.loadAllData();
-            } catch (error) { alert("Error: " + error.message); }
+            } catch (error) { alert("Reject Error: " + error.message); }
         };
 
-        // --- NEW: ADD PLAYER DYNAMICALLY ---
+        // --- PLAYER MANAGEMENT ---
         window.addNewPlayer = async () => {
-            const nameInputEl = document.getElementById("new-player-name");
-            if (!nameInputEl) return;
-            const nameInput = nameInputEl.value.trim();
+            const nameInput = document.getElementById("new-player-name").value.trim();
             if(!nameInput) return alert("Please enter a player name.");
             
             if(globalPlayersData.find(p => String(p.id).toLowerCase() === nameInput.toLowerCase())) {
@@ -444,35 +257,30 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
             try {
                 await setDoc(doc(db, "players", nameInput), {
                     rawPoints: 0, bonusPoints: 0, attendance: 0, totalScore: 0,
-                    history: [], partners: [], currentPartner: null, isFreeAgent: false
+                    history: [0], partners: [], currentPartner: null, isFreeAgent: false
                 });
                 alert(`${nameInput} successfully added to the database!`);
-                nameInputEl.value = "";
+                document.getElementById("new-player-name").value = "";
                 await window.loadAllData();
-            } catch (error) { alert("Error: " + error.message); }
+            } catch (error) { alert("Error adding player: " + error.message); }
         };
 
-        function populateAdminDropdowns() {
+        window.populateAdminDropdowns = () => {
             let pOptions = '<option value="">-- Select Player --</option>';
             let sortedPlayers = [...globalPlayersData].sort((a,b) => String(a.id).localeCompare(String(b.id)));
             sortedPlayers.forEach(p => pOptions += `<option value="${p.id}">${p.id}</option>`);
             
-            const p1 = document.getElementById('team-p1');
-            const p2 = document.getElementById('team-p2');
-            const fa = document.getElementById('fa-player');
-            if(p1) p1.innerHTML = pOptions;
-            if(p2) p2.innerHTML = pOptions;
-            if(fa) fa.innerHTML = pOptions;
+            document.getElementById('team-p1').innerHTML = pOptions;
+            document.getElementById('team-p2').innerHTML = pOptions;
+            document.getElementById('fa-player').innerHTML = pOptions;
 
             let tOptions = '<option value="">-- Select A Live Team --</option>';
             activeTeamsList.forEach((t, index) => {
                 tOptions += `<option value="${index}">${t.name}</option>`;
             });
-            const fixA = document.getElementById('fix-teamA');
-            const fixB = document.getElementById('fix-teamB');
-            if(fixA) fixA.innerHTML = tOptions;
-            if(fixB) fixB.innerHTML = tOptions;
-        }
+            document.getElementById('fix-teamA').innerHTML = tOptions;
+            document.getElementById('fix-teamB').innerHTML = tOptions;
+        };
 
         window.createFixture = async () => {
             const idxA = document.getElementById('fix-teamA').value;
@@ -494,7 +302,7 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
                 });
                 alert("Fixture created and is now live!");
                 await window.loadAllData();
-            } catch (error) { alert("Error: " + error.message); }
+            } catch (error) { alert("Error creating fixture: " + error.message); }
         };
 
         window.clearMatchesByStatus = async (status) => {
@@ -507,20 +315,18 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
                 await batch.commit();
                 alert(`All ${status} matches cleared.`);
                 await window.loadAllData();
-            } catch (error) { alert("Error: " + error.message); }
+            } catch (error) { alert("Error clearing matches: " + error.message); }
         };
 
-        // --- PLAYER MODAL & LINE GRAPH LOGIC ---
+        // --- MODAL & LINE GRAPH ---
         let playerChart = null;
         window.openPlayerModal = (playerId) => {
             const player = globalPlayersData.find(p => p.id === playerId);
             if(!player) return;
 
             document.getElementById("modal-name").innerText = player.id + "'s Profile";
-            
             const partners = Array.isArray(player.partners) && player.partners.length > 0 ? player.partners.join(", ") : "None yet";
             document.getElementById("modal-partners").innerHTML = `<b>Past Partners:</b> ${partners}`;
-
             document.getElementById("player-modal").style.display = "block";
 
             const ctx = document.getElementById('playerChart').getContext('2d');
@@ -529,10 +335,10 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
             playerChart = new Chart(ctx, {
                 type: 'line', 
                 data: {
-                    labels: ['GW1', 'GW2', 'GW3', 'GW4', 'GW5'], 
+                    labels: ['Start', 'GW1', 'GW2', 'GW3', 'GW4'], 
                     datasets: [{
-                        label: 'Points per Gameweek',
-                        data: Array.isArray(player.history) && player.history.length > 0 ? player.history : [player.totalScore, 0, 0, 0], 
+                        label: 'Points History',
+                        data: Array.isArray(player.history) && player.history.length > 0 ? player.history : [0, player.totalScore], 
                         borderColor: '#18bc9c', 
                         backgroundColor: 'rgba(24, 188, 156, 0.2)', 
                         borderWidth: 3,
@@ -549,7 +355,7 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
         };
         window.closeModal = () => document.getElementById("player-modal").style.display = "none";
 
-        // --- ADMIN CONTROLS ---
+        // --- AUTHENTICATION ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 document.getElementById("admin-panel").style.display = "block";
@@ -559,8 +365,13 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
                 document.getElementById("login-section").style.display = "block";
             }
         });
+
         window.loginAdmin = () => {
-            signInWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("password").value)
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            if(!email || !password) return alert("Please enter email and password.");
+            
+            signInWithEmailAndPassword(auth, email, password)
                 .catch((error) => alert("Login Failed: " + error.message));
         };
         window.logoutAdmin = () => signOut(auth);
@@ -568,58 +379,58 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
         window.pairPlayers = async () => {
             const p1 = document.getElementById('team-p1').value;
             const p2 = document.getElementById('team-p2').value;
-            if(!p1 || !p2 || p1===p2) return alert("Invalid pair. Please select two different players.");
+            if(!p1 || !p2 || p1===p2) return alert("Invalid pair. Select two different players.");
             try {
                 const batch = writeBatch(db);
                 batch.update(doc(db, "players", p1), { currentPartner: p2, isFreeAgent: false });
                 batch.update(doc(db, "players", p2), { currentPartner: p1, isFreeAgent: false });
                 await batch.commit(); 
-                alert(`Success: ${p1} and ${p2} are now linked as a team.`);
+                alert(`Success! ${p1} and ${p2} are linked.`);
                 await window.loadAllData(); 
-            } catch(e) { alert("Error linking players: " + e.message); }
+            } catch(e) { alert("Error: " + e.message); }
         };
 
         window.makeFreeAgent = async () => {
             const p = document.getElementById('fa-player').value;
-            if(!p) return alert("Please select a player to set as Free Agent.");
+            if(!p) return;
             try { 
                 await updateDoc(doc(db, "players", p), { currentPartner: null, isFreeAgent: true }); 
-                alert(`Success: ${p} has been set as a Free Agent.`);
+                alert(`${p} set as Free Agent.`);
                 await window.loadAllData(); 
-            } catch(e) { alert("Error setting Free Agent: " + e.message); }
+            } catch(e) { alert("Error: " + e.message); }
         };
 
         window.clearGameweekRoster = async () => {
-            if(!confirm("Are you sure you want to clear tonight's roster?")) return;
+            if(!confirm("Clear tonight's roster?")) return;
             try {
                 const batch = writeBatch(db);
                 globalPlayersData.forEach(p => batch.update(doc(db, "players", p.id), { currentPartner: null, isFreeAgent: false }));
                 await batch.commit(); 
                 alert("Roster cleared.");
                 await window.loadAllData();
-            } catch(e) { alert("Error clearing roster: " + e.message); }
+            } catch(e) { alert("Error: " + e.message); }
         };
 
-        // --- INJECT FULL GW1 DATA ---
+        // --- INJECT GW1 DATA ---
         window.loadHistoricalData = async () => {
             const button = document.getElementById("load-data-btn");
             button.innerText = "Injecting Profiles & Matches...";
             
             const gw1Data = [
-                { id: "Luke", raw: 81, bonus: 8, att: 1, total: 90, partners: ["Jodie"], history: [90] },
-                { id: "Jodie", raw: 0, bonus: 0, att: 0, total: 0, partners: ["Luke"], history: [0] },
-                { id: "Figo", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Ezra"], history: [86] },
-                { id: "Ezra", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Figo"], history: [86] },
-                { id: "Naashid", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Matthew"], history: [75] },
-                { id: "Matthew", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Naashid"], history: [75] },
-                { id: "Jason", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Leigh"], history: [70] },
-                { id: "Leigh", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Jason"], history: [70] },
-                { id: "Simone", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Charlie"], history: [62] },
-                { id: "Charlie", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Simone"], history: [62] },
-                { id: "Kyle", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Sky"], history: [59] },
-                { id: "Sky", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Kyle"], history: [59] },
-                { id: "Brady", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Aneeqah"], history: [57] },
-                { id: "Aneeqah", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Brady"], history: [57] }
+                { id: "Luke", raw: 81, bonus: 8, att: 1, total: 90, partners: ["Jodie"], history: [0, 90] },
+                { id: "Jodie", raw: 0, bonus: 0, att: 0, total: 0, partners: ["Luke"], history: [0, 0] },
+                { id: "Figo", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Ezra"], history: [0, 86] },
+                { id: "Ezra", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Figo"], history: [0, 86] },
+                { id: "Naashid", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Matthew"], history: [0, 75] },
+                { id: "Matthew", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Naashid"], history: [0, 75] },
+                { id: "Jason", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Leigh"], history: [0, 70] },
+                { id: "Leigh", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Jason"], history: [0, 70] },
+                { id: "Simone", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Charlie"], history: [0, 62] },
+                { id: "Charlie", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Simone"], history: [0, 62] },
+                { id: "Kyle", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Sky"], history: [0, 59] },
+                { id: "Sky", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Kyle"], history: [0, 59] },
+                { id: "Brady", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Aneeqah"], history: [0, 57] },
+                { id: "Aneeqah", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Brady"], history: [0, 57] }
             ];
 
             const gw1Matches = [
@@ -667,7 +478,6 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
         };
     </script>
 
-    <!-- STYLING -->
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; background: #121212; color: #e0e0e0; max-width: 600px; margin: 0 auto; }
         .card { background: #1e1e1e; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #333; }
@@ -712,14 +522,12 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
 </head>
 <body>
 
-    <!-- NAVIGATION TABS -->
     <div class="tab-container">
         <button id="btn-leaderboard" class="tab-btn" onclick="window.switchTab('leaderboard')">🏆 Standings</button>
         <button id="btn-fixtures" class="tab-btn" onclick="window.switchTab('fixtures')">🎾 Fixtures</button>
         <button id="btn-results" class="tab-btn" onclick="window.switchTab('results')">📋 Results</button>
     </div>
 
-    <!-- TAB 1: LEADERBOARD -->
     <div id="tab-leaderboard" class="card">
         <div class="global-stats">
             <div class="stat-box"><span id="stat-players">0</span><small>Active</small></div>
@@ -737,20 +545,17 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
         <div id="leaderboard-list"></div>
     </div>
 
-    <!-- TAB 2: FIXTURES -->
     <div id="tab-fixtures" class="card" style="display:none;">
         <h2 style="margin-top:0;">Live Matches</h2>
         <p style="font-size:12px; color:#aaa;">Tap "Input Score" when the match finishes.</p>
         <div id="fixtures-list"></div>
     </div>
 
-    <!-- TAB 3: RESULTS -->
     <div id="tab-results" class="card" style="display:none;">
         <h2 style="margin-top:0;">Completed Matches</h2>
         <div id="results-list"></div>
     </div>
 
-    <!-- PLAYER STATS MODAL -->
     <div id="player-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="window.closeModal()">&times;</span>
@@ -760,7 +565,6 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
         </div>
     </div>
 
-    <!-- ADMIN LOGIN -->
     <div class="card" id="login-section">
         <h2 style="margin-top: 0;">Admin Access</h2>
         <input type="email" id="email" placeholder="Admin Email">
@@ -768,13 +572,10 @@ I have rewritten the rendering engine to be completely bulletproof. If it finds 
         <button onclick="window.loginAdmin()">Unlock Dashboard</button>
     </div>
 
-    <!-- HIDDEN ADMIN DASHBOARD -->
     <div class="card" id="admin-panel">
         <h1 style="color: #e74c3c; font-size: 20px;">⚙️ Master Dashboard</h1>
         
-        <div id="admin-approvals">
-            <h3 style="color:#e74c3c; margin-top:0;">🚨 Pending Approvals</h3>
-        </div>
+        <div id="admin-approvals"></div>
 
         <h2>1. Player Management</h2>
         <p style="font-size:12px; color:#aaa; margin-top:0;">Add a new player to the database dropdowns.</p>
