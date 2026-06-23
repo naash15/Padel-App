@@ -5,26 +5,168 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Padel Season 2 Hub</title>
     
-    <!-- CHART.JS FOR GRAPHS -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- FIREBASE IMPORT SCRIPTS -->
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; background-color: #121212 !important; color: #e0e0e0; max-width: 600px; margin: 0 auto; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #333; }
+        h1 { color: #18bc9c; margin-top: 0; font-size: 24px; text-align: center; text-transform: uppercase;}
+        h2 { font-size: 16px; color: #18bc9c; border-bottom: 1px solid #333; padding-bottom: 8px; margin-top: 20px;}
+        
+        .tab-container { display: flex; justify-content: space-between; margin-bottom: 15px; background: #1a1a1a; border-radius: 8px; overflow: hidden; border: 1px solid #333;}
+        .tab-btn { flex: 1; text-align: center; padding: 12px 5px; font-size: 13px; font-weight: bold; background: transparent; color: #aaa; border: none; cursor: pointer; transition: 0.3s; margin:0;}
+        .active-tab { background: #18bc9c; color: #121212; }
+
+        .global-stats { display: flex; justify-content: space-around; background: #252525; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed #18bc9c; }
+        .stat-box { text-align: center; }
+        .stat-box span { display: block; font-size: 24px; font-weight: bold; color: #18bc9c; }
+        .stat-box small { color: #aaa; font-size: 12px; text-transform: uppercase; }
+
+        .live-roster-box { background: #181818; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f39c12; }
+        .live-roster-box h3 { margin: 0 0 10px 0; font-size: 14px; color: #f39c12; text-transform: uppercase; }
+        .team-tag { display: inline-block; background: #2c3e50; color: white; padding: 6px 12px; border-radius: 20px; font-size: 13px; margin: 0 5px 8px 0; border: 1px solid #34495e; }
+        .fa-tag { display: inline-block; background: #e74c3c; color: white; padding: 6px 12px; border-radius: 20px; font-size: 13px; margin: 0 5px 8px 0; border: 1px solid #c0392b;}
+
+        .player-card, .match-card { background: #2c2c2c; padding: 15px; margin-bottom: 12px; border-radius: 6px; cursor: pointer; }
+        .player-card { border-left: 5px solid #18bc9c; }
+        .match-card { border: 1px solid #444; }
+        .player-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .player-header strong { font-size: 18px; color: #ffffff; }
+        .total-score { font-size: 18px; font-weight: bold; color: #18bc9c; }
+        .stats-row { color: #aaaaaa; font-size: 13px; display: flex; justify-content: space-between;}
+
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
+        .modal-content { background: #1e1e1e; margin: 20% auto; padding: 20px; border: 1px solid #18bc9c; width: 90%; max-width: 500px; border-radius: 12px; color: white; }
+        .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        
+        select, input { width: 100%; padding: 12px; margin-bottom: 12px; background: #2c2c2c; color: white; border: 1px solid #444; border-radius: 6px; box-sizing: border-box; font-size: 14px;}
+        button { background: #18bc9c; color: #121212; border: none; padding: 12px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; margin-bottom: 10px;}
+        .action-btn { background: #3498db; color: white; margin-top:10px; }
+        .danger-btn { background: #e74c3c; color: white; }
+        .warning-btn { background: #f39c12; color: white; }
+        
+        #admin-panel { display: none; border-top: 4px solid #e74c3c; }
+        #admin-approvals { display:none; background:#2c1b18; padding:15px; border-radius:8px; border:1px solid #e74c3c; margin-bottom:20px; }
+    </style>
+</head>
+<body>
+
+    <div class="tab-container">
+        <button id="btn-leaderboard" class="tab-btn active-tab" onclick="window.switchTab('leaderboard')">🏆 Standings</button>
+        <button id="btn-fixtures" class="tab-btn" onclick="window.switchTab('fixtures')">🎾 Fixtures</button>
+        <button id="btn-results" class="tab-btn" onclick="window.switchTab('results')">📋 Results</button>
+    </div>
+
+    <div id="tab-leaderboard" class="card">
+        <div class="global-stats">
+            <div class="stat-box"><span id="stat-players">0</span><small>Active</small></div>
+            <div class="stat-box"><span id="stat-points">0</span><small>Raw Pts</small></div>
+        </div>
+
+        <div class="live-roster-box">
+            <h3>🎾 Confirmed Teams</h3>
+            <div id="live-teams">Loading...</div>
+            <h3 style="margin-top: 15px; color:#e74c3c;">🧍‍♂️ Free Agents</h3>
+            <div id="live-free-agents">Loading...</div>
+        </div>
+
+        <p style="text-align: center; color: #aaa; font-size: 12px;">Tap any player to view history</p>
+        <div id="leaderboard-list"></div>
+    </div>
+
+    <div id="tab-fixtures" class="card" style="display:none;">
+        <h2 style="margin-top:0;">Live Matches</h2>
+        <p style="font-size:12px; color:#aaa;">Tap "Input Score" when the match finishes.</p>
+        <div id="fixtures-list"></div>
+    </div>
+
+    <div id="tab-results" class="card" style="display:none;">
+        <h2 style="margin-top:0;">Completed Matches</h2>
+        <div id="results-list"></div>
+    </div>
+
+    <div id="player-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="window.closeModal()">&times;</span>
+            <h2 id="modal-name" style="margin-top: 0; border: none;">Profile</h2>
+            <p id="modal-partners" style="font-size: 14px; color: #ccc;"></p>
+            <canvas id="playerChart" width="400" height="250"></canvas>
+        </div>
+    </div>
+
+    <div class="card" id="login-section">
+        <h2 style="margin-top: 0;">Admin Access</h2>
+        <input type="email" id="email" placeholder="Admin Email">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="window.loginAdmin()">Unlock Dashboard</button>
+    </div>
+
+    <div class="card" id="admin-panel">
+        <h1 style="color: #e74c3c; font-size: 20px;">⚙️ Master Dashboard</h1>
+        
+        <div id="admin-approvals"></div>
+
+        <h2>🗓️ Active Gameweek Setting</h2>
+        <p style="font-size:12px; color:#aaa; margin-top:0;">Scores approved will be tied to this, ensuring players only get 1 attendance point per GW.</p>
+        <select id="active-gameweek">
+            <option value="GW1">Gameweek 1</option>
+            <option value="GW2">Gameweek 2</option>
+            <option value="GW3">Gameweek 3</option>
+            <option value="GW4">Gameweek 4</option>
+            <option value="GW5">Gameweek 5</option>
+            <option value="GW6">Gameweek 6</option>
+            <option value="GW7">Gameweek 7</option>
+            <option value="GW8">Gameweek 8</option>
+            <option value="GW9">Gameweek 9</option>
+            <option value="GW10">Gameweek 10</option>
+        </select>
+
+        <h2>1. Player Management</h2>
+        <input type="text" id="new-player-name" placeholder="Enter new player's name">
+        <button class="action-btn" style="margin-top:0;" onclick="window.addNewPlayer()">Add New Player</button>
+        
+        <select id="delete-player-select" style="margin-top:15px; border: 1px solid #e74c3c;"></select>
+        <button class="danger-btn" onclick="window.deletePlayer()">Delete Selected Player</button>
+
+        <h2>2. Build Tonight's Roster</h2>
+        <p style="font-size:12px; color:#aaa; margin-top:0;">Use "PROXY" if a player needs a temporary partner.</p>
+        <select id="team-p1"></select>
+        <select id="team-p2"></select>
+        <button onclick="window.pairPlayers()">Link Players (Team)</button>
+        <select id="fa-player" style="margin-top:10px;"></select>
+        <button class="warning-btn" onclick="window.makeFreeAgent()">Set as Free Agent</button>
+
+        <h2>3. Create Live Fixture</h2>
+        <select id="fix-teamA"></select>
+        <select id="fix-teamB"></select>
+        <button class="action-btn" onclick="window.createFixture()">Launch Fixture</button>
+
+        <h2>4. Data Controls & Resets</h2>
+        <button id="load-data-btn" style="background: #27ae60; color: white;" onclick="window.loadHistoricalData()">Push GW1 Historical Data</button>
+        <button class="warning-btn" onclick="window.clearGameweekRoster()">Clear Tonight's Roster</button>
+        <button class="danger-btn" onclick="window.clearMatchesByStatus('pending')">Delete Unplayed Fixtures</button>
+        <button class="danger-btn" onclick="window.clearMatchesByStatus('confirmed')">Clear Old Results</button>
+
+        <hr style="border: 1px solid #333; margin: 20px 0;">
+        <button class="danger-btn" onclick="window.logoutAdmin()">Lock Dashboard</button>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
         import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, writeBatch, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
 
         // =====================================================================
-        // ⚠️ IMPORTANT: PASTE YOUR *NEW* FIREBASE KEYS HERE
+        // ⚠️ PASTE YOUR *NEW* FIREBASE KEYS HERE
         // =====================================================================
         const firebaseConfig = {
-            apiKey: "AIzaSyB4zPzxFU7fcz7JCUrWJVTf6uk7UQYdmoQ", 
-            authDomain: "padel-tournament-9f1b6.firebaseapp.com", 
-            databaseURL: "https://padel-tournament-9f1b6-default-rtdb.firebaseio.com", 
-            projectId: "padel-tournament-9f1b6", 
-            storageBucket: "padel-tournament-9f1b6.firebasestorage.app", 
-            messagingSenderId: "479440834494", 
-            appId: "1:479440834494:web:f5c42ee88b93c2858173ef" 
+            apiKey: "AIzaSyB4zPzxFU7fcz7JCUrWJVTf6uk7UQYdmoQ",
+            authDomain: "padel-tournament-9f1b6.firebaseapp.com",
+            databaseURL: "https://padel-tournament-9f1b6-default-rtdb.firebaseio.com",
+            projectId: "padel-tournament-9f1b6",
+            storageBucket: "padel-tournament-9f1b6.firebasestorage.app",
+            messagingSenderId: "479440834494",
+            appId: "1:479440834494:web:f5c42ee88b93c2858173ef"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -35,13 +177,8 @@
         let globalMatchesData = [];
         let activeTeamsList = []; 
 
-        // --- CORE DATA LOADING ---
         window.loadAllData = async () => {
-            const lbList = document.getElementById("leaderboard-list");
-            if (lbList) lbList.innerHTML = "<p style='text-align:center;'>Loading live data...</p>";
-            
             try {
-                // 1. Fetch Players
                 const pSnapshot = await getDocs(collection(db, "players"));
                 globalPlayersData = [];
                 let totalLeaguePoints = 0;
@@ -55,7 +192,6 @@
                 document.getElementById("stat-players").innerText = globalPlayersData.length;
                 document.getElementById("stat-points").innerText = totalLeaguePoints;
 
-                // 2. Fetch Matches
                 const mSnapshot = await getDocs(collection(db, "matches"));
                 globalMatchesData = [];
                 mSnapshot.forEach((doc) => {
@@ -68,11 +204,9 @@
 
             } catch (error) {
                 console.error("Critical Load Error:", error);
-                if (lbList) lbList.innerHTML = `<p style='color:#ff6b6b; text-align:center;'>Database connection failed. Please check your config keys.</p>`;
             }
         };
 
-        // --- RENDER LEADERBOARD & ROSTERS ---
         window.renderLeaderboard = () => {
             let html = "";
             let activeTeams = [];
@@ -99,12 +233,11 @@
                 if (p.isFreeAgent) {
                     freeAgents.push(p.id);
                 } else if (p.currentPartner && !processedPairs.has(p.id)) {
-                    // Only display teams if they aren't the Proxy
-                    const p1Display = p.id;
-                    const p2Display = p.currentPartner;
-                    const teamStr = `${p1Display} & ${p2Display}`;
-                    activeTeams.push(teamStr);
-                    activeTeamsList.push({ p1: p.id, p2: p.currentPartner, name: teamStr });
+                    if (p.id !== "PROXY" && p.currentPartner !== "PROXY") {
+                        const teamStr = `${p.id} & ${p.currentPartner}`;
+                        activeTeams.push(teamStr);
+                        activeTeamsList.push({ p1: p.id, p2: p.currentPartner, name: teamStr });
+                    }
                     processedPairs.add(p.id);
                     processedPairs.add(p.currentPartner);
                 }
@@ -121,7 +254,6 @@
             document.getElementById("leaderboard-list").innerHTML = html || "<p style='text-align:center; color:#aaa;'>No player data.</p>";
         };
 
-        // --- RENDER FIXTURES & RESULTS ---
         window.renderMatches = () => {
             let fixturesHtml = "";
             let resultsHtml = "";
@@ -173,7 +305,6 @@
             }
         };
 
-        // --- TAB SWITCHING ---
         window.switchTab = (tabId) => {
             document.getElementById("tab-leaderboard").style.display = "none";
             document.getElementById("tab-fixtures").style.display = "none";
@@ -186,7 +317,6 @@
             document.getElementById(`btn-${tabId}`).classList.add("active-tab");
         };
 
-        // --- USER SCORE INPUT ---
         window.userSubmitScore = async (matchId, teamA, teamB) => {
             const scoreA = prompt(`Enter RAW points scored by ${teamA}:`);
             if(scoreA === null || scoreA === "") return;
@@ -204,7 +334,6 @@
             } catch (error) { alert("Error submitting score: " + error.message); }
         };
 
-        // --- ADMIN SCORE APPROVAL & ATTENDANCE LOGIC ---
         window.approveScore = async (matchId) => {
             const match = globalMatchesData.find(m => m.id === matchId);
             if(!match) return;
@@ -223,7 +352,7 @@
                 const batch = writeBatch(db);
                 
                 const processPlayerPoints = (playerId, score, bonus) => {
-                    if (playerId === "PROXY") return; // Bypass Proxy entirely
+                    if (playerId === "PROXY") return; 
                     
                     const pData = globalPlayersData.find(p => p.id === playerId);
                     if (!pData) return;
@@ -231,7 +360,6 @@
                     let attendanceInc = 0;
                     let attended = pData.attendedGWs || [];
                     
-                    // Smart Attendance check: If they haven't gotten an attendance point for this GW yet, give them 1.
                     if (!attended.includes(gw)) {
                         attendanceInc = 1;
                         attended.push(gw);
@@ -264,7 +392,6 @@
             } catch (error) { alert("Reject Error: " + error.message); }
         };
 
-        // --- PLAYER MANAGEMENT ---
         window.addNewPlayer = async () => {
             const nameInput = document.getElementById("new-player-name").value.trim();
             if(!nameInput) return alert("Please enter a player name.");
@@ -287,7 +414,7 @@
         window.deletePlayer = async () => {
             const playerId = document.getElementById("delete-player-select").value;
             if(!playerId) return alert("Select a player to delete.");
-            if(!confirm(`⚠️ WARNING: Are you sure you want to completely delete ${playerId}? This cannot be undone.`)) return;
+            if(!confirm(`Are you sure you want to completely delete ${playerId}?`)) return;
 
             try {
                 await deleteDoc(doc(db, "players", playerId));
@@ -301,15 +428,18 @@
             pOptions += '<option value="PROXY">🥷 PROXY / GUEST (No Points)</option>';
 
             let sortedPlayers = [...globalPlayersData].sort((a,b) => String(a.id).localeCompare(String(b.id)));
-            sortedPlayers.forEach(p => pOptions += `<option value="${p.id}">${p.id}</option>`);
+            sortedPlayers.forEach(p => {
+                if(p.id !== "PROXY") pOptions += `<option value="${p.id}">${p.id}</option>`;
+            });
             
             document.getElementById('team-p1').innerHTML = pOptions;
             document.getElementById('team-p2').innerHTML = pOptions;
             document.getElementById('fa-player').innerHTML = pOptions;
             
-            // Populate Delete Dropdown excluding PROXY
             let delOptions = '<option value="">-- Select Player to Delete --</option>';
-            sortedPlayers.forEach(p => delOptions += `<option value="${p.id}">${p.id}</option>`);
+            sortedPlayers.forEach(p => {
+                if(p.id !== "PROXY") delOptions += `<option value="${p.id}">${p.id}</option>`;
+            });
             document.getElementById('delete-player-select').innerHTML = delOptions;
 
             let tOptions = '<option value="">-- Select A Live Team --</option>';
@@ -359,7 +489,6 @@
             } catch (error) { alert("Error clearing matches: " + error.message); }
         };
 
-        // --- MODAL & LINE GRAPH ---
         let playerChart = null;
         window.openPlayerModal = (playerId) => {
             const player = globalPlayersData.find(p => p.id === playerId);
@@ -389,4 +518,133 @@
                 },
                 options: {
                     responsive: true,
-                    scales: { y: { beginAtZero: true, grid: { color: '#333' } }, x: { grid: { color:                
+                    scales: { y: { beginAtZero: true, grid: { color: '#333' } }, x: { grid: { color: '#333' } } },
+                    plugins: { legend: { labels: { color: '#fff' } } }
+                }
+            });
+        };
+        window.closeModal = () => document.getElementById("player-modal").style.display = "none";
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById("admin-panel").style.display = "block";
+                document.getElementById("login-section").style.display = "none";
+            } else {
+                document.getElementById("admin-panel").style.display = "none";
+                document.getElementById("login-section").style.display = "block";
+            }
+        });
+
+        window.loginAdmin = () => {
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            if(!email || !password) return alert("Please enter email and password.");
+            
+            signInWithEmailAndPassword(auth, email, password)
+                .catch((error) => alert("Login Failed: " + error.message));
+        };
+        window.logoutAdmin = () => signOut(auth);
+
+        window.pairPlayers = async () => {
+            const p1 = document.getElementById('team-p1').value;
+            const p2 = document.getElementById('team-p2').value;
+            if(!p1 || !p2 || p1===p2) return alert("Invalid pair.");
+            try {
+                const batch = writeBatch(db);
+                if(p1 !== "PROXY") batch.update(doc(db, "players", p1), { currentPartner: p2, isFreeAgent: false });
+                if(p2 !== "PROXY") batch.update(doc(db, "players", p2), { currentPartner: p1, isFreeAgent: false });
+                
+                await batch.commit(); 
+                alert(`Success! ${p1} and ${p2} are linked.`);
+                await window.loadAllData(); 
+            } catch(e) { alert("Error: " + e.message); }
+        };
+
+        window.makeFreeAgent = async () => {
+            const p = document.getElementById('fa-player').value;
+            if(!p || p === "PROXY") return;
+            try { 
+                await updateDoc(doc(db, "players", p), { currentPartner: null, isFreeAgent: true }); 
+                alert(`${p} set as Free Agent.`);
+                await window.loadAllData(); 
+            } catch(e) { alert("Error: " + e.message); }
+        };
+
+        window.clearGameweekRoster = async () => {
+            if(!confirm("Clear tonight's roster?")) return;
+            try {
+                const batch = writeBatch(db);
+                globalPlayersData.forEach(p => batch.update(doc(db, "players", p.id), { currentPartner: null, isFreeAgent: false }));
+                await batch.commit(); 
+                alert("Roster cleared.");
+                await window.loadAllData();
+            } catch(e) { alert("Error: " + e.message); }
+        };
+
+        window.loadHistoricalData = async () => {
+            const button = document.getElementById("load-data-btn");
+            button.innerText = "Injecting Profiles & Matches...";
+            
+            const gw1Data = [
+                { id: "Luke", raw: 81, bonus: 8, att: 1, total: 90, partners: ["Jodie"], history: [0, 90], attendedGWs: ["GW1"] },
+                { id: "Jodie", raw: 0, bonus: 0, att: 0, total: 0, partners: ["Luke"], history: [0, 0], attendedGWs: [] },
+                { id: "Figo", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Ezra"], history: [0, 86], attendedGWs: ["GW1"] },
+                { id: "Ezra", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Figo"], history: [0, 86], attendedGWs: ["GW1"] },
+                { id: "Naashid", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Matthew"], history: [0, 75], attendedGWs: ["GW1"] },
+                { id: "Matthew", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Naashid"], history: [0, 75], attendedGWs: ["GW1"] },
+                { id: "Jason", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Leigh"], history: [0, 70], attendedGWs: ["GW1"] },
+                { id: "Leigh", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Jason"], history: [0, 70], attendedGWs: ["GW1"] },
+                { id: "Simone", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Charlie"], history: [0, 62], attendedGWs: ["GW1"] },
+                { id: "Charlie", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Simone"], history: [0, 62], attendedGWs: ["GW1"] },
+                { id: "Kyle", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Skye"], history: [0, 59], attendedGWs: ["GW1"] },
+                { id: "Skye", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Kyle"], history: [0, 59], attendedGWs: ["GW1"] },
+                { id: "Brady", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Aneeqah"], history: [0, 57], attendedGWs: ["GW1"] },
+                { id: "Aneeqah", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Brady"], history: [0, 57], attendedGWs: ["GW1"] },
+                { id: "PROXY", raw: 0, bonus: 0, att: 0, total: 0, partners: [], history: [0], attendedGWs: [] }
+            ];
+
+            const gw1Matches = [
+                { id: "gw1_m1", teamA: ["Figo", "Ezra"], teamB: ["Naashid", "Matthew"], scoreA: 21, scoreB: 17, status: "confirmed", gameweek: "GW1" },
+                { id: "gw1_m2", teamA: ["Brady", "Aneeqah"], teamB: ["Simone", "Charlie"], scoreA: 18, scoreB: 15, status: "confirmed", gameweek: "GW1" },
+                { id: "gw1_m3", teamA: ["Luke", "Jodie"], teamB: ["Kyle", "Skye"], scoreA: 26, scoreB: 9, status: "confirmed", gameweek: "GW1" },
+                { id: "gw1_m4", teamA: ["Jason", "Leigh"], teamB: ["Brady", "Aneeqah"], scoreA: 20, scoreB: 15, status: "confirmed", gameweek: "GW1" },
+                { id: "gw1_m5", teamA: ["Naashid", "Matthew"], teamB: ["Jason", "Leigh"], scoreA: 23, scoreB: 16, status: "confirmed", gameweek: "GW1" },
+                { id: "gw1_m6", teamA: ["Figo", "Ezra"], teamB: ["Simone", "Charlie"], scoreA: 26, scoreB: 5, status: "confirmed", gameweek: "GW1" },
+                { id: "gw1_m7", teamA: ["Luke", "Jodie"], teamB: ["Figo", "Ezra"], scoreA: 22, scoreB: 15, status: "confirmed", gameweek: "GW1" },
+                { id: "gw1_m8", teamA: ["Simone", "Charlie"], teamB: ["Kyle", "Skye"], scoreA: 20, scoreB: 17, status: "confirmed", gameweek: "GW1" },
+                { id: "gw1_m9", teamA: ["Luke", "Jodie"], teamB: ["Brady", "Aneeqah"], scoreA: 17, scoreB: 7, status: "confirmed", gameweek: "GW1" },
+                { id: "gw1_m10", teamA: ["Kyle", "Skye"], teamB: ["Jason", "Leigh"], scoreA: 16, scoreB: 10, status: "confirmed", gameweek: "GW1" },
+                { id: "gw1_m11", teamA: ["Luke", "Jodie"], teamB: ["Naashid", "Matthew"], scoreA: 16, scoreB: 10, status: "confirmed", gameweek: "GW1" },
+                { id: "gw1_m12", teamA: ["Simone", "Charlie"], teamB: ["Jason", "Leigh"], scoreA: 17, scoreB: 11, status: "confirmed", gameweek: "GW1" },
+                { id: "gw1_m13", teamA: ["Naashid", "Matthew"], teamB: ["Kyle", "Skye"], scoreA: 20, scoreB: 14, status: "confirmed", gameweek: "GW1" },
+                { id: "gw1_m14", teamA: ["Figo", "Ezra"], teamB: ["Brady", "Aneeqah"], scoreA: 17, scoreB: 14, status: "confirmed", gameweek: "GW1" }
+            ];
+
+            try {
+                const batch = writeBatch(db);
+                for (const p of gw1Data) {
+                    const playerRef = doc(db, "players", p.id);
+                    batch.set(playerRef, {
+                        rawPoints: p.raw, bonusPoints: p.bonus, attendance: p.att, totalScore: p.total,
+                        partners: p.partners, history: p.history, currentPartner: null, isFreeAgent: false, attendedGWs: p.attendedGWs
+                    });
+                }
+                for (const m of gw1Matches) {
+                    const matchRef = doc(db, "matches", m.id);
+                    batch.set(matchRef, {
+                        teamA: m.teamA, teamB: m.teamB, scoreA: m.scoreA, scoreB: m.scoreB, status: m.status, gameweek: m.gameweek
+                    });
+                }
+                await batch.commit();
+                alert("Gameweek 1 Profiles AND Match Results delivered!");
+                button.innerText = "Push GW1 Data";
+                await window.loadAllData(); 
+            } catch (error) { alert("Error: " + error.message); }
+        };
+
+        window.onload = () => {
+            window.loadAllData();
+        };
+    </script>
+</body>
+</html>
