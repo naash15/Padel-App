@@ -1,12 +1,14 @@
-<!DOCTYPE html>
+             <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Padel Season 2 Hub</title>
     
+    <!-- CHART.JS FOR GRAPHS -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- STYLING (Placed at the top to guarantee a dark screen immediately) -->
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; background-color: #121212 !important; color: #e0e0e0; max-width: 600px; margin: 0 auto; }
         .card { background: #1e1e1e; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #333; }
@@ -51,12 +53,14 @@
 </head>
 <body>
 
+    <!-- NAVIGATION TABS -->
     <div class="tab-container">
         <button id="btn-leaderboard" class="tab-btn active-tab" onclick="window.switchTab('leaderboard')">🏆 Standings</button>
         <button id="btn-fixtures" class="tab-btn" onclick="window.switchTab('fixtures')">🎾 Fixtures</button>
         <button id="btn-results" class="tab-btn" onclick="window.switchTab('results')">📋 Results</button>
     </div>
 
+    <!-- TAB 1: LEADERBOARD -->
     <div id="tab-leaderboard" class="card">
         <div class="global-stats">
             <div class="stat-box"><span id="stat-players">0</span><small>Active</small></div>
@@ -74,17 +78,20 @@
         <div id="leaderboard-list"></div>
     </div>
 
+    <!-- TAB 2: FIXTURES -->
     <div id="tab-fixtures" class="card" style="display:none;">
         <h2 style="margin-top:0;">Live Matches</h2>
         <p style="font-size:12px; color:#aaa;">Tap "Input Score" when the match finishes.</p>
         <div id="fixtures-list"></div>
     </div>
 
+    <!-- TAB 3: RESULTS -->
     <div id="tab-results" class="card" style="display:none;">
         <h2 style="margin-top:0;">Completed Matches</h2>
         <div id="results-list"></div>
     </div>
 
+    <!-- PLAYER STATS MODAL -->
     <div id="player-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="window.closeModal()">&times;</span>
@@ -94,6 +101,7 @@
         </div>
     </div>
 
+    <!-- ADMIN LOGIN -->
     <div class="card" id="login-section">
         <h2 style="margin-top: 0;">Admin Access</h2>
         <input type="email" id="email" placeholder="Admin Email">
@@ -101,6 +109,7 @@
         <button onclick="window.loginAdmin()">Unlock Dashboard</button>
     </div>
 
+    <!-- HIDDEN ADMIN DASHBOARD -->
     <div class="card" id="admin-panel">
         <h1 style="color: #e74c3c; font-size: 20px;">⚙️ Master Dashboard</h1>
         
@@ -151,6 +160,7 @@
         <button class="danger-btn" onclick="window.logoutAdmin()">Lock Dashboard</button>
     </div>
 
+    <!-- FIREBASE LOGIC -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
         import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, writeBatch, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
@@ -176,6 +186,7 @@
         let globalPlayersData = []; 
         let globalMatchesData = [];
         let activeTeamsList = []; 
+        let isAdminLoggedIn = false; // Tracks if the user is an admin to show the delete X
 
         window.loadAllData = async () => {
             try {
@@ -197,6 +208,9 @@
                 mSnapshot.forEach((doc) => {
                     globalMatchesData.push({ id: doc.id, ...doc.data() });
                 });
+
+                // Sort matches chronologically so they are numbered correctly by when they were added
+                globalMatchesData.sort((a, b) => String(a.id).localeCompare(String(b.id)));
 
                 window.renderLeaderboard();
                 window.renderMatches();
@@ -258,6 +272,7 @@
             let fixturesHtml = "";
             let resultsHtml = "";
             let approvalsHtml = "";
+            let pendingCount = 1;
 
             globalMatchesData.forEach(m => {
                 const teamAStr = Array.isArray(m.teamA) ? m.teamA.join(" & ") : "Team A";
@@ -265,11 +280,19 @@
                 const gwLabel = m.gameweek ? `<span style="background:#444; padding:2px 6px; border-radius:4px; font-size:10px;">${m.gameweek}</span>` : "";
                 
                 if (m.status === "pending") {
+                    // Only show the Delete X if the user is logged into the Admin panel
+                    const deleteBtn = isAdminLoggedIn ? `<button onclick="window.deleteSingleMatch('${m.id}')" style="position: absolute; top: 12px; right: 15px; background: transparent; border: none; color: #e74c3c; font-size: 16px; width: auto; padding: 0; cursor: pointer; line-height: 1;" title="Delete Fixture">✖</button>` : "";
+
                     fixturesHtml += `
-                    <div class="match-card">
-                        <div style="text-align:center; margin-bottom:10px;">${gwLabel}<br><b>${teamAStr}</b> <br><span style="color:#f39c12; font-size:12px;">VS</span><br> <b>${teamBStr}</b></div>
+                    <div class="match-card" style="position: relative;">
+                        ${deleteBtn}
+                        <div style="text-align:center; margin-bottom:10px;">
+                            <span style="background:#333; padding:2px 6px; border-radius:4px; font-size:10px; color:#aaa; margin-right: 5px;">Match ${pendingCount}</span>${gwLabel}
+                            <br><br><b>${teamAStr}</b> <br><span style="color:#f39c12; font-size:12px;">VS</span><br> <b>${teamBStr}</b>
+                        </div>
                         <button class="action-btn" onclick="window.userSubmitScore('${m.id}', '${teamAStr}', '${teamBStr}')">Input Score</button>
                     </div>`;
+                    pendingCount++;
                 } else if (m.status === "played") {
                     fixturesHtml += `
                     <div class="match-card" style="border-left: 4px solid #f39c12;">
@@ -390,6 +413,16 @@
                 await updateDoc(doc(db, "matches", matchId), { scoreA: 0, scoreB: 0, status: "pending" });
                 await window.loadAllData();
             } catch (error) { alert("Reject Error: " + error.message); }
+        };
+
+        // NEW FUNCTION: Delete a specific fixture
+        window.deleteSingleMatch = async (matchId) => {
+            if(!confirm("Are you sure you want to completely delete this fixture?")) return;
+            try {
+                await deleteDoc(doc(db, "matches", matchId));
+                alert("Fixture deleted.");
+                await window.loadAllData();
+            } catch (error) { alert("Error deleting fixture: " + error.message); }
         };
 
         window.addNewPlayer = async () => {
@@ -527,12 +560,15 @@
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
+                isAdminLoggedIn = true;
                 document.getElementById("admin-panel").style.display = "block";
                 document.getElementById("login-section").style.display = "none";
             } else {
+                isAdminLoggedIn = false;
                 document.getElementById("admin-panel").style.display = "none";
                 document.getElementById("login-section").style.display = "block";
             }
+            window.renderMatches(); // Re-render to show/hide admin buttons on fixtures
         });
 
         window.loginAdmin = () => {
@@ -648,3 +684,7 @@
     </script>
 </body>
 </html>
+                           
+                                                    scoreA: 0,
+                                                        });
+                
