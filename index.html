@@ -1,4 +1,4 @@
-             <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -119,7 +119,7 @@
         <p style="font-size:12px; color:#aaa; margin-top:0;">Scores approved will be tied to this, ensuring players only get 1 attendance point per GW.</p>
         <select id="active-gameweek">
             <option value="GW1">Gameweek 1</option>
-            <option value="GW2">Gameweek 2</option>
+            <option value="GW2" selected>Gameweek 2</option>
             <option value="GW3">Gameweek 3</option>
             <option value="GW4">Gameweek 4</option>
             <option value="GW5">Gameweek 5</option>
@@ -151,7 +151,7 @@
         <button class="action-btn" onclick="window.createFixture()">Launch Fixture</button>
 
         <h2>4. Data Controls & Resets</h2>
-        <button id="load-data-btn" style="background: #27ae60; color: white;" onclick="window.loadHistoricalData()">Push GW1 Historical Data</button>
+        <button id="load-data-btn" style="background: #27ae60; color: white;" onclick="window.loadHistoricalData()">Push Historical Data (GW1 & GW2)</button>
         <button class="warning-btn" onclick="window.clearGameweekRoster()">Clear Tonight's Roster</button>
         <button class="danger-btn" onclick="window.clearMatchesByStatus('pending')">Delete Unplayed Fixtures</button>
         <button class="danger-btn" onclick="window.clearMatchesByStatus('confirmed')">Clear Old Results</button>
@@ -415,7 +415,6 @@
             } catch (error) { alert("Reject Error: " + error.message); }
         };
 
-        // NEW FUNCTION: Delete a specific fixture
         window.deleteSingleMatch = async (matchId) => {
             if(!confirm("Are you sure you want to completely delete this fixture?")) return;
             try {
@@ -538,7 +537,7 @@
             playerChart = new Chart(ctx, {
                 type: 'line', 
                 data: {
-                    labels: ['Start', 'GW1', 'GW2', 'GW3', 'GW4'], 
+                    labels: ['Start', 'GW1', 'GW2', 'GW3', 'GW4', 'GW5'], 
                     datasets: [{
                         label: 'Points History',
                         data: Array.isArray(player.history) && player.history.length > 0 ? player.history : [0, player.totalScore], 
@@ -619,23 +618,27 @@
 
         window.loadHistoricalData = async () => {
             const button = document.getElementById("load-data-btn");
-            button.innerText = "Injecting Profiles & Matches...";
+            button.innerText = "Injecting Profiles & Stats...";
             
-            const gw1Data = [
-                { id: "Luke", raw: 81, bonus: 8, att: 1, total: 90, partners: ["Jodie"], history: [0, 90], attendedGWs: ["GW1"] },
-                { id: "Jodie", raw: 0, bonus: 0, att: 0, total: 0, partners: ["Luke"], history: [0, 0], attendedGWs: [] },
-                { id: "Figo", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Ezra"], history: [0, 86], attendedGWs: ["GW1"] },
-                { id: "Ezra", raw: 79, bonus: 6, att: 1, total: 86, partners: ["Figo"], history: [0, 86], attendedGWs: ["GW1"] },
-                { id: "Naashid", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Matthew"], history: [0, 75], attendedGWs: ["GW1"] },
-                { id: "Matthew", raw: 70, bonus: 4, att: 1, total: 75, partners: ["Naashid"], history: [0, 75], attendedGWs: ["GW1"] },
-                { id: "Jason", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Leigh"], history: [0, 70], attendedGWs: ["GW1"] },
-                { id: "Leigh", raw: 67, bonus: 2, att: 1, total: 70, partners: ["Jason"], history: [0, 70], attendedGWs: ["GW1"] },
-                { id: "Simone", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Charlie"], history: [0, 62], attendedGWs: ["GW1"] },
-                { id: "Charlie", raw: 57, bonus: 4, att: 1, total: 62, partners: ["Simone"], history: [0, 62], attendedGWs: ["GW1"] },
-                { id: "Kyle", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Skye"], history: [0, 59], attendedGWs: ["GW1"] },
-                { id: "Skye", raw: 56, bonus: 2, att: 1, total: 59, partners: ["Kyle"], history: [0, 59], attendedGWs: ["GW1"] },
-                { id: "Brady", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Aneeqah"], history: [0, 57], attendedGWs: ["GW1"] },
-                { id: "Aneeqah", raw: 54, bonus: 2, att: 1, total: 57, partners: ["Brady"], history: [0, 57], attendedGWs: ["GW1"] },
+            const historicalData = [
+                { id: "Luke", raw: 161, bonus: 14, att: 2, total: 177, partners: ["Jodie", "Matthew"], history: [0, 90, 177], attendedGWs: ["GW1", "GW2"] },
+                { id: "Jason", raw: 157, bonus: 8, att: 2, total: 167, partners: ["Leigh", "Aneeqah"], history: [0, 70, 167], attendedGWs: ["GW1", "GW2"] },
+                { id: "Matthew", raw: 150, bonus: 10, att: 2, total: 162, partners: ["Naashid", "Luke"], history: [0, 75, 162], attendedGWs: ["GW1", "GW2"] },
+                { id: "Aneeqah", raw: 144, bonus: 8, att: 2, total: 154, partners: ["Brady", "Jason"], history: [0, 57, 154], attendedGWs: ["GW1", "GW2"] },
+                { id: "Naashid", raw: 140, bonus: 11, att: 2, total: 153, partners: ["Matthew", "Brady"], history: [0, 75, 153], attendedGWs: ["GW1", "GW2"] },
+                { id: "Figo", raw: 139, bonus: 11, att: 2, total: 152, partners: ["Ezra", "Chantell"], history: [0, 86, 152], attendedGWs: ["GW1", "GW2"] },
+                { id: "Ezra", raw: 133, bonus: 6, att: 2, total: 141, partners: ["Figo", "Simone"], history: [0, 86, 141], attendedGWs: ["GW1", "GW2"] },
+                { id: "Brady", raw: 124, bonus: 9, att: 2, total: 135, partners: ["Aneeqah", "Naashid"], history: [0, 57, 135], attendedGWs: ["GW1", "GW2"] },
+                { id: "Kyle", raw: 112, bonus: 8, att: 2, total: 122, partners: ["Skye", "Jodie"], history: [0, 59, 122], attendedGWs: ["GW1", "GW2"] },
+                { id: "Leigh", raw: 111, bonus: 6, att: 2, total: 119, partners: ["Jason", "PROXY"], history: [0, 70, 119], attendedGWs: ["GW1", "GW2"] },
+                { id: "Simone", raw: 111, bonus: 4, att: 2, total: 117, partners: ["Charlie", "Ezra"], history: [0, 62, 117], attendedGWs: ["GW1", "GW2"] },
+                { id: "Charlie", raw: 102, bonus: 6, att: 2, total: 110, partners: ["Simone", "Goolam"], history: [0, 62, 110], attendedGWs: ["GW1", "GW2"] },
+                { id: "Skye", raw: 104, bonus: 2, att: 2, total: 108, partners: ["Kyle", "Darren"], history: [0, 59, 108], attendedGWs: ["GW1", "GW2"] },
+                { id: "Chantell", raw: 60, bonus: 5, att: 1, total: 66, partners: ["Figo"], history: [0, 0, 66], attendedGWs: ["GW2"] },
+                { id: "Jodie", raw: 56, bonus: 6, att: 1, total: 63, partners: ["Luke", "Kyle"], history: [0, 0, 63], attendedGWs: ["GW2"] },
+                { id: "Darren", raw: 48, bonus: 0, att: 1, total: 49, partners: ["Skye"], history: [0, 0, 49], attendedGWs: ["GW2"] },
+                { id: "Goolam", raw: 45, bonus: 2, att: 1, total: 48, partners: ["Charlie"], history: [0, 0, 48], attendedGWs: ["GW2"] },
+                { id: "Kurt", raw: 0, bonus: 0, att: 0, total: 0, partners: [], history: [0, 0, 0], attendedGWs: [] },
                 { id: "PROXY", raw: 0, bonus: 0, att: 0, total: 0, partners: [], history: [0], attendedGWs: [] }
             ];
 
@@ -658,7 +661,7 @@
 
             try {
                 const batch = writeBatch(db);
-                for (const p of gw1Data) {
+                for (const p of historicalData) {
                     const playerRef = doc(db, "players", p.id);
                     batch.set(playerRef, {
                         rawPoints: p.raw, bonusPoints: p.bonus, attendance: p.att, totalScore: p.total,
@@ -672,8 +675,8 @@
                     });
                 }
                 await batch.commit();
-                alert("Gameweek 1 Profiles AND Match Results delivered!");
-                button.innerText = "Push GW1 Data";
+                alert("Gameweek 1 & 2 Profiles synchronized successfully!");
+                button.innerText = "Push Historical Data (GW1 & GW2)";
                 await window.loadAllData(); 
             } catch (error) { alert("Error: " + error.message); }
         };
@@ -684,7 +687,3 @@
     </script>
 </body>
 </html>
-                           
-                                                    scoreA: 0,
-                                                        });
-                
