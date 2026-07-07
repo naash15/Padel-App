@@ -1,4 +1,4 @@
-      <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -143,7 +143,11 @@
         <select id="team-p1"></select>
         <select id="team-p2"></select>
         <button onclick="window.pairPlayers()">Link Players (Team)</button>
-        <select id="fa-player" style="margin-top:10px;"></select>
+        
+        <select id="delete-team-select" style="margin-top:15px; border: 1px solid #e74c3c;"></select>
+        <button class="danger-btn" onclick="window.disbandTeamFromDropdown()">Delete / Disband Selected Team</button>
+
+        <select id="fa-player" style="margin-top:15px;"></select>
         <button class="warning-btn" onclick="window.makeFreeAgent()">Set as Free Agent</button>
 
         <h2>3. Create Live Fixture</h2>
@@ -257,8 +261,12 @@
                 }
             });
             
-            document.getElementById("live-teams").innerHTML = activeTeams.length > 0 
-                ? activeTeams.map(t => `<div class="team-tag">${t}</div>`).join('') 
+            document.getElementById("live-teams").innerHTML = activeTeamsList.length > 0 
+                ? activeTeamsList.map((t, index) => {
+                    // Show delete X next to team tag if Admin is logged in
+                    const deleteTagBtn = isAdminLoggedIn ? ` <span onclick="event.stopPropagation(); window.disbandTeamByIndex(${index});" style="color: #f44336; font-weight: bold; cursor: pointer; margin-left: 6px;" title="Delete Team">✖</span>` : "";
+                    return `<div class="team-tag" style="display: inline-flex; align-items: center;">${t.name}${deleteTagBtn}</div>`;
+                }).join('') 
                 : "<p style='color:#aaa; font-size: 13px;'>No teams generated yet.</p>";
             
             document.getElementById("live-free-agents").innerHTML = freeAgents.length > 0 
@@ -423,6 +431,28 @@
             } catch (error) { alert("Error deleting fixture: " + error.message); }
         };
 
+        // NEW: Disband a team by index from the confirmed teams list
+        window.disbandTeamByIndex = async (index) => {
+            const team = activeTeamsList[index];
+            if(!team) return;
+            if(!confirm(`Are you sure you want to delete / disband the team: ${team.name}?`)) return;
+            try {
+                const batch = writeBatch(db);
+                if(team.p1 && team.p1 !== "PROXY") batch.update(doc(db, "players", team.p1), { currentPartner: null, isFreeAgent: false });
+                if(team.p2 && team.p2 !== "PROXY") batch.update(doc(db, "players", team.p2), { currentPartner: null, isFreeAgent: false });
+                await batch.commit();
+                alert(`Team "${team.name}" has been disbanded.`);
+                await window.loadAllData();
+            } catch(e) { alert("Error deleting team: " + e.message); }
+        };
+
+        // NEW: Disband a team from the admin dropdown
+        window.disbandTeamFromDropdown = async () => {
+            const idx = document.getElementById('delete-team-select').value;
+            if(idx === "") return alert("Select a team to delete / disband.");
+            await window.disbandTeamByIndex(idx);
+        };
+
         window.addNewPlayer = async () => {
             const nameInput = document.getElementById("new-player-name").value.trim();
             if(!nameInput) return alert("Please enter a player name.");
@@ -479,6 +509,11 @@
             });
             document.getElementById('fix-teamA').innerHTML = tOptions;
             document.getElementById('fix-teamB').innerHTML = tOptions;
+            
+            // Populate the new team delete dropdown
+            if(document.getElementById('delete-team-select')) {
+                document.getElementById('delete-team-select').innerHTML = tOptions;
+            }
         };
 
         window.createFixture = async () => {
@@ -567,6 +602,7 @@
                 document.getElementById("login-section").style.display = "block";
             }
             window.renderMatches(); 
+            window.renderLeaderboard(); // Re-render to show/hide delete team X buttons
         });
 
         window.loginAdmin = () => {
@@ -707,4 +743,3 @@
     </script>
 </body>
 </html>
-             
