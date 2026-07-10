@@ -3,77 +3,340 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Padel Season 2 Hub</title>
+    <title>Padel League Hub</title>
     
-    <!-- CHART.JS FOR GRAPHS -->
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- STYLING -->
+    <!-- Google Fonts for Premium Look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; background-color: #121212 !important; color: #e0e0e0; max-width: 600px; margin: 0 auto; }
-        .card { background: #1e1e1e; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #333; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        h1 { color: #18bc9c; margin-top: 0; font-size: 24px; text-align: center; text-transform: uppercase;}
-        h2 { font-size: 16px; color: #18bc9c; border-bottom: 1px solid #333; padding-bottom: 8px; margin-top: 20px; text-transform: uppercase;}
-        
-        .tab-container { display: flex; justify-content: space-between; margin-bottom: 15px; background: #1a1a1a; border-radius: 8px; overflow: hidden; border: 1px solid #333;}
-        .tab-btn { flex: 1; text-align: center; padding: 12px 5px; font-size: 13px; font-weight: bold; background: transparent; color: #aaa; border: none; cursor: pointer; transition: 0.3s; margin:0;}
-        .active-tab { background: #18bc9c; color: #121212; }
+        :root {
+            --bg-main: #0b0f19;
+            --bg-card: #151f32;
+            --bg-input: #1e293b;
+            --primary: #10b981;
+            --primary-hover: #059669;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --timer-bg: #a8e6cf;
+        }
 
-        .global-stats { display: flex; justify-content: space-around; background: #252525; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed #18bc9c; }
-        .stat-box { text-align: center; }
-        .stat-box span { display: block; font-size: 24px; font-weight: bold; color: #18bc9c; }
-        .stat-box small { color: #aaa; font-size: 12px; text-transform: uppercase; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            padding: 16px;
+            margin: 0 auto;
+            max-width: 640px;
+            padding-bottom: 60px;
+        }
 
-        .live-roster-box { background: #181818; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f39c12; }
-        .live-roster-box h3 { margin: 0 0 10px 0; font-size: 14px; color: #f39c12; text-transform: uppercase; }
-        .team-tag { display: inline-block; background: #2c3e50; color: white; padding: 6px 12px; border-radius: 20px; font-size: 13px; margin: 0 5px 8px 0; border: 1px solid #34495e; }
-        .fa-tag { display: inline-block; background: #e74c3c; color: white; padding: 6px 12px; border-radius: 20px; font-size: 13px; margin: 0 5px 8px 0; border: 1px solid #c0392b;}
+        /* Sleek Top Bar */
+        .header-bar {
+            text-align: center;
+            padding: 20px 0 10px 0;
+        }
+        .header-bar h1 {
+            font-size: 26px;
+            font-weight: 900;
+            color: var(--primary);
+            letter-spacing: -0.5px;
+            margin: 0;
+            text-transform: uppercase;
+        }
+        .header-bar p {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin: 4px 0 0 0;
+        }
 
-        .player-card, .match-card { background: #2c2c2c; padding: 15px; margin-bottom: 12px; border-radius: 8px; cursor: pointer; transition: transform 0.2s;}
-        .player-card:hover, .match-card:hover { transform: translateY(-2px); }
-        .player-card { border-left: 5px solid #18bc9c; }
-        .match-card { border: 1px solid #444; text-align: center;}
-        .player-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .player-header strong { font-size: 18px; color: #ffffff; }
-        .total-score { font-size: 18px; font-weight: bold; color: #18bc9c; }
-        .stats-row { color: #aaaaaa; font-size: 13px; display: flex; justify-content: space-between;}
+        /* Modular Container Design */
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
 
-        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
-        .modal-content { background: #1e1e1e; margin: 20% auto; padding: 20px; border: 1px solid #18bc9c; width: 90%; max-width: 500px; border-radius: 12px; color: white; box-shadow: 0 0 15px rgba(24, 188, 156, 0.4);}
-        .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
-        
-        select, input { width: 100%; padding: 12px; margin-bottom: 12px; background: #2c2c2c; color: white; border: 1px solid #444; border-radius: 6px; box-sizing: border-box; font-size: 14px;}
-        button { background: #18bc9c; color: #121212; border: none; padding: 12px; width: 100%; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; margin-bottom: 10px; transition: opacity 0.2s;}
-        button:active { opacity: 0.8; }
-        .action-btn { background: #3498db; color: white; margin-top:10px; }
-        .danger-btn { background: #e74c3c; color: white; }
-        .warning-btn { background: #f39c12; color: white; }
-        .success-btn { background: #27ae60; color: white; }
-        
-        /* Collapsible Admin Menus */
-        details { background: #2a2a2a; border-radius: 8px; margin-bottom: 10px; border: 1px solid #444; overflow: hidden; }
-        summary { background: #333; padding: 12px 15px; font-weight: bold; cursor: pointer; list-style: none; outline: none; color: #18bc9c; }
-        summary::-webkit-details-marker { display: none; }
-        .details-content { padding: 15px; }
-        
-        /* Updated Timer Layout */
-        .timer-box { background: #a8e6cf; padding: 20px; border-radius: 8px; text-align: center; border: 2px solid #555; margin-bottom: 20px;}
-        .timer-display { font-size: 48px; font-weight: 900; color: #000; font-family: monospace; letter-spacing: 2px;}
-        .timer-phase { font-size: 16px; color: #333; text-transform: uppercase; margin-bottom: 10px; font-weight: bold;}
-        .toggle-switch { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 15px; background: rgba(0,0,0,0.1); padding: 10px; border-radius: 6px;}
+        h2 {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-top: 0;
+            margin-bottom: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
 
-        #admin-logout-zone { display: none; margin-bottom: 15px; }
-        #admin-approvals { display:none; background:#2c1b18; padding:15px; border-radius:8px; border:1px solid #e74c3c; margin-bottom:20px; }
+        /* Premium Tap-Friendly Tabs */
+        .tab-container {
+            display: flex;
+            background: #111827;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .tab-btn {
+            flex: 1;
+            text-align: center;
+            padding: 12px 4px;
+            font-size: 13px;
+            font-weight: 600;
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .active-tab {
+            background: var(--primary);
+            color: #000000;
+            font-weight: 700;
+        }
+
+        /* Standout Timer Block */
+        .timer-box {
+            background: var(--timer-bg);
+            padding: 24px;
+            border-radius: 14px;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(168, 230, 207, 0.2);
+            margin-bottom: 20px;
+        }
+        .timer-phase {
+            font-size: 13px;
+            color: #1e293b;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+        .timer-display {
+            font-size: 54px;
+            font-weight: 900;
+            color: #000000;
+            font-family: monospace;
+            letter-spacing: 1px;
+            line-height: 1;
+        }
+        .toggle-switch {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 14px;
+            background: rgba(0, 0, 0, 0.06);
+            padding: 8px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        .toggle-switch label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #1e293b;
+            cursor: pointer;
+        }
+
+        /* Clean List Displays */
+        .list-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+        }
+        .list-item:last-child { margin-bottom: 0; }
+
+        /* Match Cards */
+        .match-card {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: center;
+            position: relative;
+        }
+        .match-meta {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        .badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+        .badge-gw { background: #374151; color: var(--text-main); }
+        .badge-round { background: var(--info); color: white; }
+        .badge-court { background: var(--warning); color: #000; }
+
+        .match-teams {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 600;
+            font-size: 15px;
+            padding: 0 10px;
+        }
+        .team-side { flex: 1; text-align: center; }
+        .vs-divider { color: var(--text-muted); font-size: 11px; font-weight: 800; padding: 0 10px; }
+        .score-display { font-size: 20px; font-weight: 900; color: var(--primary); margin-top: 5px; }
+
+        /* Forms & Inputs UI Overhaul */
+        .form-group {
+            margin-bottom: 12px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        select, input[type="text"], input[type="email"], input[type="password"], input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg-input);
+            color: var(--text-main);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* Modernized Buttons */
+        button {
+            background: var(--primary);
+            color: #0b0f19;
+            font-weight: 700;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+            transition: filter 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        button:hover { filter: brightness(1.1); }
+        .btn-action { background: var(--info); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-warning { background: var(--warning); color: #000; }
+        .btn-secondary { background: #334155; color: var(--text-main); }
+
+        /* Sleek Admin Collapsible Section */
+        details {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+        }
+        summary {
+            padding: 14px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            color: var(--primary);
+            user-select: none;
+            outline: none;
+        }
+        .details-content {
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.15);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Tags */
+        .tag {
+            display: inline-block;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 20px;
+            margin-right: 4px;
+            margin-bottom: 4px;
+        }
+        .tag-team { background: rgba(16, 185, 129, 0.1); color: var(--primary); border: 1px solid rgba(16, 185, 129, 0.2); }
+        .tag-fa { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); }
+
+        /* Modal Overlay */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(7, 11, 25, 0.85);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 480px;
+            padding: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        .close-btn {
+            position: absolute;
+            top: 16px; right: 16px;
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        #admin-logout-zone { display: none; margin-bottom: 16px; }
+        #admin-approvals { display: none; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
     </style>
 </head>
 <body>
 
-    <!-- LOCK ADMIN DASHBOARD -->
-    <div id="admin-logout-zone">
-        <button class="danger-btn" onclick="window.logoutAdmin()">🔒 Lock Admin Dashboard</button>
+    <div class="header-bar">
+        <h1>Padel Season 2 Hub</h1>
+        <p>Live Scoring & Tournament Tracker</p>
     </div>
 
-    <!-- NEW TAB ORDER: LIVE -> STANDINGS -> FIXTURES -> RESULTS -->
+    <!-- ADMIN LOGOUT STRIP -->
+    <div id="admin-logout-zone">
+        <button class="btn-danger" onclick="window.logoutAdmin()">🔒 Lock Admin Dashboard</button>
+    </div>
+
+    <!-- MAIN APP NAVIGATION -->
     <div class="tab-container">
         <button id="btn-live" class="tab-btn active-tab" onclick="window.switchTab('live')">🔴 LIVE</button>
         <button id="btn-leaderboard" class="tab-btn" onclick="window.switchTab('leaderboard')">🏆 Standings</button>
@@ -81,188 +344,207 @@
         <button id="btn-results" class="tab-btn" onclick="window.switchTab('results')">📋 Results</button>
     </div>
 
-    <!-- TAB 0: LIVE -->
-    <div id="tab-live" class="card">
-        <!-- GLOBAL SYNCED TIMER -->
+    <!-- TAB 1: LIVE ACTION -->
+    <div id="tab-live" class="tab-panel">
         <div class="timer-box">
-            <div class="timer-phase" id="timer-phase">No Active Tournament</div>
+            <div class="timer-phase" id="timer-phase">Tournament Ready</div>
             <div class="timer-display" id="timer-display">00:00</div>
             <div class="toggle-switch">
-                <input type="checkbox" id="buzzer-toggle" style="width:20px; height:20px; margin:0;" onchange="window.toggleWakeLock()">
-                <label for="buzzer-toggle" style="font-size: 14px; font-weight:bold; color:#000;">🔔 Enable Buzzer & Screen Wake</label>
+                <input type="checkbox" id="buzzer-toggle" style="margin:0; width:16px; height:16px;" onchange="window.toggleWakeLock()">
+                <label for="buzzer-toggle">🔔 Audio Buzzer & Awake Screen</label>
             </div>
         </div>
 
-        <!-- TONIGHT's CHAMPIONS (TEAM TALLY) -->
-        <h2 style="display:flex; justify-content:space-between; align-items:center;">
-            👑 Tonight's Champions
-            <span onclick="window.toggleLiveChart()" style="font-size:12px; cursor:pointer; background:#333; padding:4px 8px; border-radius:4px; color:#aaa;">📊 Toggle Chart</span>
-        </h2>
-        <div id="live-chart-container" style="display:none; background:#252525; padding:10px; border-radius:8px; margin-bottom:15px; border:1px solid #444;">
-            <canvas id="liveNightChart" width="400" height="200"></canvas>
-        </div>
-        <div id="live-tally-list" style="background: #1e1e1e; padding: 10px; border-radius: 8px; border: 1px dashed #f39c12; margin-bottom: 20px;">
-            Loading tally...
+        <div class="card">
+            <h2>
+                <span>👑 Tonight's Champions Tally</span>
+                <button class="btn-secondary" style="width:auto; padding:4px 10px; font-size:11px;" onclick="window.toggleLiveChart()">📊 Graph</button>
+            </h2>
+            <div id="live-chart-container" style="display:none; margin-bottom:14px; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px;">
+                <canvas id="liveNightChart" width="400" height="200"></canvas>
+            </div>
+            <div id="live-tally-list">Loading real-time calculations...</div>
         </div>
 
-        <!-- LIVE FIXTURES ENTRY -->
-        <h2>🎾 Live Matches (Enter Scores)</h2>
-        <div id="live-fixtures-list"></div>
+        <div class="card">
+            <h2>🎾 Active Matches</h2>
+            <div id="live-fixtures-list"></div>
+        </div>
     </div>
 
-    <!-- TAB 1: LEADERBOARD / STANDINGS -->
-    <div id="tab-leaderboard" class="card" style="display:none;">
-        <div class="global-stats">
-            <div class="stat-box"><span id="stat-players">0</span><small>Active</small></div>
-            <div class="stat-box"><span id="stat-points">0</span><small>Raw Pts</small></div>
-        </div>
-
-        <!-- ADMIN: PLAYER & TEAM MANAGEMENT -->
+    <!-- TAB 2: LEADERBOARD & STANDINGS -->
+    <div id="tab-leaderboard" class="tab-panel" style="display:none;">
+        
+        <!-- ADMIN: ROSTER & PAIRS MANAGEMENT -->
         <div class="admin-section" style="display:none;">
-            <details>
-                <summary>🛠 Roster & Team Builder</summary>
-                <div class="details-content">
-                    <h3 style="margin-top:0; font-size:14px; color:#aaa;">Add/Delete Player</h3>
-                    <input type="text" id="new-player-name" placeholder="Enter new player's name">
-                    <button class="action-btn" style="margin-top:0;" onclick="window.addNewPlayer()">Add New Player</button>
-                    <select id="delete-player-select" style="margin-top:10px; border: 1px solid #e74c3c;"></select>
-                    <button class="danger-btn" onclick="window.deletePlayer()">Delete Player</button>
-                    
-                    <hr style="border:1px solid #444; margin:15px 0;">
-                    
-                    <h3 style="font-size:14px; color:#aaa;">Link New Team</h3>
-                    <select id="team-p1"></select>
-                    <select id="team-p2"></select>
-                    <button onclick="window.pairPlayers()">Create Team</button>
-
-                    <hr style="border:1px solid #444; margin:15px 0;">
-
-                    <h3 style="font-size:14px; color:#f39c12;">Dynamic Swap (Replace PROXY/Player)</h3>
-                    <select id="swap-team-select"></select>
-                    <select id="swap-new-player"></select>
-                    <button class="warning-btn" onclick="window.dynamicSwapPlayer()">Swap & Update Matches</button>
-
-                    <hr style="border:1px solid #444; margin:15px 0;">
-                    
-                    <h3 style="font-size:14px; color:#e74c3c;">Disband Team / FA</h3>
-                    <select id="delete-team-select" style="border: 1px solid #e74c3c;"></select>
-                    <button class="danger-btn" onclick="window.disbandTeamFromDropdown()">Disband Selected Team</button>
-                </div>
-            </details>
-        </div>
-
-        <div class="live-roster-box">
-            <h3>🎾 Confirmed Teams</h3>
-            <div id="live-teams">Loading...</div>
-            <h3 style="margin-top: 15px; color:#e74c3c;">🧍‍♂️ Free Agents</h3>
-            <div id="live-free-agents">Loading...</div>
-        </div>
-
-        <div id="leaderboard-list"></div>
-    </div>
-
-    <!-- TAB 2: FIXTURES -->
-    <div id="tab-fixtures" class="card" style="display:none;">
-        <!-- ADMIN: CREATE FIXTURE -->
-        <div class="admin-section" style="display:none;">
-            <details>
-                <summary>➕ Create New Fixture</summary>
-                <div class="details-content">
-                    <select id="fix-teamA"></select>
-                    <select id="fix-teamB"></select>
-                    <div style="display:flex; gap:10px;">
-                        <select id="fix-round">
-                            <option value="">-- Round --</option>
-                            <script>for(let i=1;i<=12;i++) document.write(`<option value="Round ${i}">Round ${i}</option>`);</script>
-                        </select>
-                        <select id="fix-court">
-                            <option value="">-- Court --</option>
-                            <script>for(let i=1;i<=12;i++) document.write(`<option value="Court ${i}">Court ${i}</option>`);</script>
-                        </select>
+            <div class="card" style="border: 1px solid rgba(16, 185, 129, 0.2);">
+                <h2 style="color:var(--primary);">🛠️ Roster Management Controls</h2>
+                
+                <details>
+                    <summary>👤 Manage Players & Free Agents</summary>
+                    <div class="details-content">
+                        <div class="form-group">
+                            <label>New Player Name</label>
+                            <input type="text" id="new-player-name" placeholder="Name">
+                        </div>
+                        <button onclick="window.addNewPlayer()">Add to System</button>
+                        
+                        <hr style="border:0; border-top:1px solid rgba(255,255,255,0.05); margin:15px 0;">
+                        
+                        <div class="form-group">
+                            <label>Select Player to Remove</label>
+                            <select id="delete-player-select"></select>
+                        </div>
+                        <button class="btn-danger" onclick="window.deletePlayer()">Delete Permanently</button>
                     </div>
-                    <button class="action-btn" onclick="window.createFixture()">Launch Fixture</button>
-                </div>
-            </details>
-            
-            <details>
-                <summary>⚡ Auto-Inject GW3 Fixtures</summary>
-                <div class="details-content">
-                    <p style="font-size:12px; color:#aaa; margin-top:0;">Instantly populates the 30 matches across 10 rounds and 3 courts from the generated sheet.</p>
-                    <button class="success-btn" onclick="window.injectGW3Fixtures()">Inject 30 GW3 Matches</button>
-                </div>
-            </details>
+                </details>
+
+                <details>
+                    <summary>🔗 Create Fixed Pairs (Teams)</summary>
+                    <div class="details-content">
+                        <div class="form-group"><label>Player 1</label><select id="team-p1"></select></div>
+                        <div class="form-group"><label>Player 2</label><select id="team-p2"></select></div>
+                        <button onclick="window.pairPlayers()">Link Team Pair</button>
+                    </div>
+                </details>
+
+                <details>
+                    <summary>🔄 Dynamic Mid-Tournament Swap (Hishaam / Proxy)</summary>
+                    <div class="details-content">
+                        <div class="form-group"><label>Select Target Team</label><select id="swap-team-select"></select></div>
+                        <div class="form-group"><label>Select Incoming Replacement</label><select id="swap-new-player"></select></div>
+                        <button class="btn-warning" onclick="window.dynamicSwapPlayer()">Execute Safe Swap</button>
+                    </div>
+                </details>
+            </div>
         </div>
 
-        <h2 style="margin-top:0;">All Pending Matches</h2>
-        <div id="fixtures-list"></div>
+        <div class="card">
+            <h2>📋 Active Configurations</h2>
+            <div style="margin-bottom: 12px;">
+                <span style="color: var(--text-muted); font-size:12px; font-weight:700; display:block; margin-bottom:6px; text-transform:uppercase;">Formed Teams:</span>
+                <div id="live-teams"></div>
+            </div>
+            <div>
+                <span style="color: var(--text-muted); font-size:12px; font-weight:700; display:block; margin-bottom:6px; text-transform:uppercase;">Available Free Agents:</span>
+                <div id="live-free-agents"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>🏆 Individual League Standings</h2>
+            <div id="leaderboard-list"></div>
+        </div>
     </div>
 
-    <!-- TAB 3: RESULTS & APPROVALS -->
-    <div id="tab-results" class="card" style="display:none;">
+    <!-- TAB 3: FIXTURES ENGINE -->
+    <div id="tab-fixtures" class="tab-panel" style="display:none;">
+        <div class="admin-section" style="display:none;">
+            <div class="card" style="border: 1px solid rgba(59, 130, 246, 0.2);">
+                <h2 style="color:var(--info);">📅 Match Scheduling Desk</h2>
+                
+                <details>
+                    <summary>🛠️ Manual Custom Match Builder</summary>
+                    <div class="details-content">
+                        <div class="form-group"><label>Home Team</label><select id="fix-teamA"></select></div>
+                        <div class="form-group"><label>Away Team</label><select id="fix-teamB"></select></div>
+                        <div style="display:flex; gap:10px;">
+                            <div class="form-group" style="flex:1;"><label>Round</label><select id="fix-round"><script>for(let i=1;i<=12;i++) document.write(`<option value="Round ${i}">Round ${i}</option>`);</script></select></div>
+                            <div class="form-group" style="flex:1;"><label>Court</label><select id="fix-court"><script>for(let i=1;i<=3;i++) document.write(`<option value="Court ${i}">Court ${i}</option>`);</script></select></div>
+                        </div>
+                        <button class="btn-action" onclick="window.createFixture()">Launch Fixture</button>
+                    </div>
+                </details>
+
+                <details>
+                    <summary>⚡ Automated Sheet Match Ingestion</summary>
+                    <div class="details-content">
+                        <p style="font-size:12px; color:var(--text-muted); margin-top:0;">Loads all matches across 10 rounds mapped precisely to the 3 default courts instantly.</p>
+                        <button class="btn-action" style="background:#10b981; color:#000;" onclick="window.injectGW3Fixtures()">Ingest GW3 Schedule</button>
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📅 Scheduled Matches</h2>
+            <div id="fixtures-list"></div>
+        </div>
+    </div>
+
+    <!-- TAB 4: HISTORICAL RESULTS -->
+    <div id="tab-results" class="tab-panel" style="display:none;">
         <div class="admin-section" style="display:none;">
             <div id="admin-approvals"></div>
 
-            <details>
-                <summary>⏱ Global Tournament Timer Config</summary>
-                <div class="details-content">
-                    <label style="font-size:12px;">Warm-up (Mins)</label>
-                    <input type="number" id="t-warmup" value="10">
-                    <label style="font-size:12px;">Round Duration (Mins)</label>
-                    <input type="number" id="t-round" value="11">
-                    <label style="font-size:12px;">Transition / Rest (Mins)</label>
-                    <input type="number" id="t-trans" value="2">
-                    <label style="font-size:12px;">Total Rounds</label>
-                    <input type="number" id="t-count" value="10">
-                    <button class="action-btn" onclick="window.startGlobalTimer()">Launch Global Timer</button>
-                    <button class="danger-btn" onclick="window.stopGlobalTimer()">Stop / Reset Timer</button>
-                </div>
-            </details>
+            <div class="card" style="border: 1px solid rgba(245, 158, 11, 0.2);">
+                <h2 style="color:var(--warning);">⚙️ Tournament Engine Settings</h2>
+                
+                <details>
+                    <summary>⏱️ Synchronized Timer Parameter Dashboard</summary>
+                    <div class="details-content">
+                        <div class="form-group"><label>Warm-up Block (Minutes)</label><input type="number" id="t-warmup" value="10"></div>
+                        <div class="form-group"><label>Round Block (Minutes)</label><input type="number" id="t-round" value="11"></div>
+                        <div class="form-group"><label>Transition Interval (Minutes)</label><input type="number" id="t-trans" value="2"></div>
+                        <div class="form-group"><label>Total Target Rounds</label><input type="number" id="t-count" value="10"></div>
+                        <button class="btn-action" onclick="window.startGlobalTimer()">Deploy Global Timer</button>
+                        <button class="btn-danger" style="margin-top:6px;" onclick="window.stopGlobalTimer()">Force Reset/Stop</button>
+                    </div>
+                </details>
 
-            <details style="margin-top:10px;">
-                <summary>⚙️ System Data & Overrides</summary>
-                <div class="details-content">
-                    <h3 style="margin-top:0; font-size:14px;">Active Gameweek Setting</h3>
-                    <select id="active-gameweek" onchange="window.renderLiveTally()">
-                        <option value="GW1">Gameweek 1</option>
-                        <option value="GW2">Gameweek 2</option>
-                        <option value="GW3" selected>Gameweek 3</option>
-                        <option value="GW4">Gameweek 4</option>
-                    </select>
-                    <button class="danger-btn" onclick="window.clearMatchesByStatus('pending')">Delete Unplayed Fixtures</button>
-                </div>
-            </details>
+                <details>
+                    <summary>💾 League Archival & Data Scope Options</summary>
+                    <div class="details-content">
+                        <div class="form-group">
+                            <label>Scope Context View (Gameweek)</label>
+                            <select id="active-gameweek" onchange="window.renderLiveTally()">
+                                <option value="GW1">Gameweek 1</option>
+                                <option value="GW2">Gameweek 2</option>
+                                <option value="GW3" selected>Gameweek 3</option>
+                                <option value="GW4">Gameweek 4</option>
+                            </select>
+                        </div>
+                        <button class="btn-warning" onclick="window.archiveTonightChampions()">🗄️ Archive Tonight's Champions</button>
+                        <button class="btn-danger" style="margin-top:8px;" onclick="window.clearMatchesByStatus('pending')">Wipe Pending Fixtures</button>
+                    </div>
+                </details>
+            </div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 15px; margin-top:15px;">
-            <h2 style="margin: 0; border: none; padding: 0;">Completed Matches</h2>
-            <select id="results-filter" onchange="window.renderMatches()" style="width: auto; padding: 6px; margin: 0; background: #333; border: 1px solid #555;">
-                <option value="ALL">All GWs</option>
-                <option value="GW1">Gameweek 1</option>
-                <option value="GW2">Gameweek 2</option>
-                <option value="GW3" selected>Gameweek 3</option>
-            </select>
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 style="margin:0;">📋 Official Scorecard Index</h2>
+                <select id="results-filter" onchange="window.renderMatches()" style="width:auto; padding:6px 10px; font-size:12px;">
+                    <option value="ALL">Complete Record</option>
+                    <option value="GW1">Gameweek 1</option>
+                    <option value="GW2">Gameweek 2</option>
+                    <option value="GW3" selected>Gameweek 3</option>
+                </select>
+            </div>
+            <div id="results-list"></div>
         </div>
-        <div id="results-list"></div>
     </div>
 
-    <!-- PLAYER STATS MODAL -->
+    <!-- DYNAMIC ANALYTICS PROFILE MODAL -->
     <div id="player-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="window.closeModal()">&times;</span>
-            <h2 id="modal-name" style="margin-top: 0; border: none;">Profile</h2>
-            <canvas id="playerChart" width="400" height="250"></canvas>
+            <h2 id="modal-name" style="margin-bottom:16px;">Historical Tracking</h2>
+            <div style="width:100%; height:260px; position:relative;">
+                <canvas id="playerChart"></canvas>
+            </div>
         </div>
     </div>
 
-    <!-- ADMIN LOGIN -->
+    <!-- TOUCH ACCESS SECURITY ACCESS -->
     <div class="card" id="login-section">
-        <h2 style="margin-top: 0;">Admin Access</h2>
-        <input type="email" id="email" placeholder="Admin Email">
-        <input type="password" id="password" placeholder="Password">
-        <button onclick="window.loginAdmin()">Unlock Dashboard</button>
+        <h2>🔒 Console Credentials</h2>
+        <div class="form-group"><input type="email" id="email" placeholder="Email Reference"></div>
+        <div class="form-group"><input type="password" id="password" placeholder="Key Token"></div>
+        <button onclick="window.loginAdmin()">Establish Secure Link</button>
     </div>
 
-    <!-- FIREBASE LOGIC -->
+    <!-- INGEST ARCHITECTURE SCRIPT -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, writeBatch, increment, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
@@ -287,7 +569,6 @@
         let activeTeamsList = []; 
         let isAdminLoggedIn = false; 
         
-        // --- Wake Lock & Audio ---
         let wakeLock = null;
         let lastBuzzerPhase = "";
 
@@ -304,15 +585,16 @@
 
         const playBuzzer = () => {
             if (!document.getElementById("buzzer-toggle").checked) return;
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.type = 'square'; osc.frequency.setValueAtTime(600, ctx.currentTime);
-            gain.gain.setValueAtTime(1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 1.2);
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.type = 'square'; osc.frequency.setValueAtTime(580, ctx.currentTime);
+                gain.gain.setValueAtTime(1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 1.2);
+            } catch(e){}
         };
 
-        // --- Timer Logic ---
         let localTimerInterval;
         const listenToTimer = () => {
             onSnapshot(doc(db, "config", "timer"), (snapshot) => {
@@ -320,7 +602,7 @@
                 if(localTimerInterval) clearInterval(localTimerInterval);
                 
                 if (!data || !data.running) {
-                    document.getElementById("timer-phase").innerText = "Tournament Paused";
+                    document.getElementById("timer-phase").innerText = "Timer Off";
                     document.getElementById("timer-display").innerText = "00:00";
                     lastBuzzerPhase = "";
                     return;
@@ -334,11 +616,11 @@
                     let currentPhase = ""; let timeLeft = 0;
 
                     if (elapsedSec < warmSec) {
-                        currentPhase = "Warm-Up"; timeLeft = warmSec - elapsedSec;
+                        currentPhase = "Warm-Up Phase"; timeLeft = warmSec - elapsedSec;
                     } else {
                         const postWarmupSec = elapsedSec - warmSec;
                         if (postWarmupSec >= cycleSec * data.count) {
-                            currentPhase = "Tournament Complete"; timeLeft = 0; clearInterval(localTimerInterval);
+                            currentPhase = "Matches Finished"; timeLeft = 0; clearInterval(localTimerInterval);
                         } else {
                             const cyclePosition = postWarmupSec % cycleSec;
                             const currentRound = Math.floor(postWarmupSec / cycleSec) + 1;
@@ -346,7 +628,7 @@
                             if (cyclePosition < (data.round * 60)) {
                                 currentPhase = `Round ${currentRound}`; timeLeft = (data.round * 60) - cyclePosition;
                             } else {
-                                currentPhase = `Transition to Round ${currentRound + 1}`; timeLeft = cycleSec - cyclePosition;
+                                currentPhase = `Transition Block`; timeLeft = cycleSec - cyclePosition;
                             }
                         }
                     }
@@ -373,28 +655,22 @@
 
         window.stopGlobalTimer = async () => { await setDoc(doc(db, "config", "timer"), { running: false }); };
 
-        // --- Core Load ---
         window.loadAllData = async () => {
             try {
                 const pSnapshot = await getDocs(collection(db, "players"));
-                globalPlayersData = []; let totalLeaguePoints = 0;
+                globalPlayersData = [];
                 pSnapshot.forEach((doc) => {
-                    const data = { id: doc.id, ...doc.data() };
-                    globalPlayersData.push(data);
-                    totalLeaguePoints += (data.rawPoints || 0);
+                    globalPlayersData.push({ id: doc.id, ...doc.data() });
                 });
-                document.getElementById("stat-players").innerText = globalPlayersData.length;
-                document.getElementById("stat-points").innerText = totalLeaguePoints;
 
                 const mSnapshot = await getDocs(collection(db, "matches"));
                 globalMatchesData = []; mSnapshot.forEach((doc) => globalMatchesData.push({ id: doc.id, ...doc.data() }));
                 globalMatchesData.sort((a, b) => String(a.id).localeCompare(String(b.id)));
 
                 window.renderLeaderboard(); window.renderMatches(); window.renderLiveTally(); window.populateAdminDropdowns();
-            } catch (error) { console.error("Data Load Error:", error); }
+            } catch (error) { console.error("Sync Failure:", error); }
         };
 
-        // --- Tonight's Champions (Team Tally) ---
         let liveNightChartInstance = null;
         window.toggleLiveChart = () => {
             const container = document.getElementById("live-chart-container");
@@ -421,28 +697,33 @@
             const sortedLive = Object.keys(teamPoints).map(t => ({id: t, pts: teamPoints[t]})).filter(t => t.pts > 0).sort((a, b) => b.pts - a.pts);
             
             document.getElementById("live-tally-list").innerHTML = sortedLive.length > 0 
-                ? sortedLive.map((t, i) => `<div style="display:flex; justify-content:space-between; margin-bottom:5px; border-bottom:1px solid #333; padding-bottom:5px;"><span><b>${i+1}.</b> ${t.id}</span><span style="color:#18bc9c; font-weight:bold;">${t.pts} pts</span></div>`).join('')
-                : "<span style='color:#aaa; font-size:13px;'>No points approved for this Gameweek yet.</span>";
+                ? sortedLive.map((t, i) => `<div class="list-item"><span><b>${i+1}.</b> ${t.id}</span><span style="color:var(--primary); font-weight:700;">${t.pts} raw pts</span></div>`).join('')
+                : "<span style='color:var(--text-muted); font-size:13px;'>No verified results logged for this configuration frame yet.</span>";
 
-            const ctx = document.getElementById('liveNightChart').getContext('2d');
-            if (liveNightChartInstance) liveNightChartInstance.destroy();
-            liveNightChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: { labels: sortedLive.map(t => t.id), datasets: [{ label: 'Team Points', data: sortedLive.map(t => t.pts), backgroundColor: 'rgba(24, 188, 156, 0.8)' }] },
-                options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
-            });
+            const canvas = document.getElementById('liveNightChart');
+            if(canvas) {
+                const ctx = canvas.getContext('2d');
+                if (liveNightChartInstance) liveNightChartInstance.destroy();
+                liveNightChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: sortedLive.map(t => t.id), datasets: [{ label: 'Team Total', data: sortedLive.map(t => t.pts), backgroundColor: '#10b981' }] },
+                    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' } }, y: { grid: { display: false } } } }
+                });
+            }
         };
 
-        // --- Renders ---
         window.renderLeaderboard = () => {
             let html = ""; let freeAgents = []; let processedPairs = new Set(); activeTeamsList = []; 
             globalPlayersData.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0)); 
 
             globalPlayersData.forEach((p) => {
                 html += `
-                <div class="player-card" onclick="window.openPlayerModal('${p.id}')">
-                    <div class="player-header"><strong>${p.id}</strong><span class="total-score">${p.totalScore || 0} Pts</span></div>
-                    <div class="stats-row"><span>Raw: ${p.rawPoints || 0}</span> | <span>Bonus: ${p.bonusPoints || 0}</span> | <span>Att: ${p.attendance || 0}</span></div>
+                <div class="list-item" style="cursor:pointer;" onclick="window.openPlayerModal('${p.id}')">
+                    <div>
+                        <strong style="font-size:15px; color:white;">${p.id}</strong>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Raw: ${p.rawPoints || 0} | Bonus: ${p.bonusPoints || 0} | Att: ${p.attendance || 0}</div>
+                    </div>
+                    <span style="font-size:16px; font-weight:800; color:var(--primary);">${p.totalScore || 0}</span>
                 </div>`;
                 if (p.isFreeAgent) freeAgents.push(p.id);
                 else if (p.currentPartner && !processedPairs.has(p.id)) {
@@ -455,9 +736,9 @@
             });
             
             document.getElementById("live-teams").innerHTML = activeTeamsList.length > 0 
-                ? activeTeamsList.map(t => `<div class="team-tag">${t.name}</div>`).join('') : "<p style='color:#aaa;'>No teams.</p>";
+                ? activeTeamsList.map(t => `<span class="tag tag-team">${t.name}</span>`).join('') : "<p style='color:var(--text-muted); font-size:13px; margin:0;'>None formed.</p>";
             document.getElementById("live-free-agents").innerHTML = freeAgents.length > 0 
-                ? freeAgents.map(fa => `<div class="fa-tag">${fa}</div>`).join('') : "<p style='color:#aaa;'>None currently.</p>";
+                ? freeAgents.map(fa => `<span class="tag tag-fa">${fa}</span>`).join('') : "<p style='color:var(--text-muted); font-size:13px; margin:0;'>None active.</p>";
             document.getElementById("leaderboard-list").innerHTML = html;
         };
 
@@ -469,28 +750,28 @@
             globalMatchesData.forEach(m => {
                 const teamAStr = Array.isArray(m.teamA) ? m.teamA.join(" & ") : "Team A";
                 const teamBStr = Array.isArray(m.teamB) ? m.teamB.join(" & ") : "Team B";
-                const badges = `<div style="margin-bottom:10px;"><span style="background:#444; padding:2px 6px; border-radius:4px; font-size:10px;">${m.gameweek}</span> <span style="background:#3498db; padding:2px 6px; border-radius:4px; font-size:10px;">${m.round}</span> <span style="background:#e67e22; padding:2px 6px; border-radius:4px; font-size:10px;">${m.court}</span></div>`;
+                const metaBadges = `<div class="match-meta"><span class="badge badge-gw">${m.gameweek}</span><span class="badge badge-round">${m.round}</span><span class="badge badge-court">${m.court}</span></div>`;
 
                 if (m.status === "pending") {
-                    const deleteBtn = isAdminLoggedIn ? `<button onclick="window.deleteSingleMatch('${m.id}')" style="position:absolute; top:12px; right:15px; background:none; border:none; color:#e74c3c; font-size:16px; cursor:pointer;">✖</button>` : "";
-                    const card = `<div class="match-card" style="position:relative;">${deleteBtn}${badges}<b>${teamAStr}</b> <br><span style="color:#f39c12; font-size:12px;">VS</span><br> <b>${teamBStr}</b><button class="action-btn" onclick="window.userSubmitScore('${m.id}', '${teamAStr}', '${teamBStr}')">Input Score</button></div>`;
+                    const dBtn = isAdminLoggedIn ? `<button class="btn-danger" style="width:auto; padding:4px 8px; font-size:10px; position:absolute; top:12px; right:12px;" onclick="window.deleteSingleMatch('${m.id}')">Remove</button>` : "";
+                    const card = `<div class="match-card">${dBtn}${metaBadges}<div class="match-teams"><div class="team-side">${teamAStr}</div><div class="vs-divider">VS</div><div class="team-side">${teamBStr}</div></div><button class="btn-secondary" style="margin-top:12px;" onclick="window.userSubmitScore('${m.id}', '${teamAStr}', '${teamBStr}')">Input Match Result</button></div>`;
                     if(m.gameweek === activeGW) liveFixturesHtml += card;
                     pendingFixturesHtml += card;
                 } else if (m.status === "played") {
-                    approvalsHtml += `<div class="match-card" style="border-left: 4px solid #f39c12;"><p style="margin:0 0 10px 0; font-size:14px;"><b>${teamAStr}</b> (${m.scoreA}) vs <b>${teamBStr}</b> (${m.scoreB})</p><button style="background:#27ae60; color:white; padding:8px;" onclick="window.approveScore('${m.id}')">Approve Score</button><button style="background:#e74c3c; color:white; padding:8px; margin-top:5px;" onclick="window.rejectScore('${m.id}')">Reject (Reset)</button></div>`;
+                    approvalsHtml += `<div class="match-card" style="border-left: 4px solid var(--warning);">${metaBadges}<div style="font-size:14px; margin-bottom:10px;"><b>${teamAStr}</b> (<span style="color:var(--warning);">${m.scoreA}</span>) vs <b>${teamBStr}</b> (<span style="color:var(--warning);">${m.scoreB}</span>)</div><div style="display:flex; gap:6px;"><button style="padding:6px; font-size:12px;" onclick="window.approveScore('${m.id}')">Approve</button><button class="btn-danger" style="padding:6px; font-size:12px;" onclick="window.rejectScore('${m.id}')">Reset</button></div></div>`;
                 } else if (m.status === "confirmed") {
                     if (resultsFilter === "ALL" || m.gameweek === resultsFilter) {
-                        resultsHtml += `<div class="match-card" style="border-left: 4px solid #18bc9c;">${badges}<div style="font-size:15px;"><b>${teamAStr}</b> <span style="color:#18bc9c; font-weight:bold;">${m.scoreA} - ${m.scoreB}</span> <b>${teamBStr}</b></div></div>`;
+                        resultsHtml += `<div class="match-card" style="border-left: 4px solid var(--primary);">${metaBadges}<div class="match-teams" style="font-size:14px;"><div class="team-side">${teamAStr}</div><div class="score-display" style="margin:0 15px;">${m.scoreA} - ${m.scoreB}</div><div class="team-side">${teamBStr}</div></div></div>`;
                     }
                 }
             });
 
-            document.getElementById("live-fixtures-list").innerHTML = liveFixturesHtml || "<p style='text-align:center;'>No matches.</p>";
-            document.getElementById("fixtures-list").innerHTML = pendingFixturesHtml || "<p style='text-align:center;'>No fixtures.</p>";
-            document.getElementById("results-list").innerHTML = resultsHtml || "<p style='text-align:center;'>No results.</p>";
+            document.getElementById("live-fixtures-list").innerHTML = liveFixturesHtml || "<p style='text-align:center; color:var(--text-muted); font-size:13px;'>No outstanding active games for this match week setup.</p>";
+            document.getElementById("fixtures-list").innerHTML = pendingFixturesHtml || "<p style='text-align:center; color:var(--text-muted); font-size:13px;'>Schedule space empty.</p>";
+            document.getElementById("results-list").innerHTML = resultsHtml || "<p style='text-align:center; color:var(--text-muted); font-size:13px;'>No logged metrics discovered.</p>";
             
             const apSect = document.getElementById("admin-approvals");
-            if (approvalsHtml) { apSect.innerHTML = `<h3 style="color:#e74c3c; margin-top:0;">🚨 Approvals</h3>` + approvalsHtml; apSect.style.display = "block"; } 
+            if (approvalsHtml) { apSect.innerHTML = `<h3 style="color:var(--warning); margin-top:0; font-size:14px; text-transform:uppercase;">🚨 Dynamic Submissions Pending Verification</h3>` + approvalsHtml; apSect.style.display = "block"; } 
             else { apSect.style.display = "none"; }
         };
 
@@ -503,25 +784,23 @@
             document.getElementById(`btn-${tabId}`).classList.add("active-tab");
         };
 
-        // --- Data Submission & Actions ---
         window.userSubmitScore = async (matchId, teamA, teamB) => {
-            const sA = prompt(`RAW points scored by ${teamA}:`); if(sA === null || sA === "") return;
-            const sB = prompt(`RAW points scored by ${teamB}:`); if(sB === null || sB === "") return;
+            const sA = prompt(`Enter score for ${teamA}:`); if(sA === null || sA === "") return;
+            const sB = prompt(`Enter score for ${teamB}:`); if(sB === null || sB === "") return;
             await updateDoc(doc(db, "matches", matchId), { scoreA: parseInt(sA), scoreB: parseInt(sB), status: "played" });
-            alert("Score submitted!"); await window.loadAllData();
+            alert("Score routed for validation approval."); await window.loadAllData();
         };
 
         window.approveScore = async (matchId) => {
             const match = globalMatchesData.find(m => m.id === matchId);
             if(!match) return;
 
-            // Updated Bonus Points Logic: Win = +2, Draw = +1
             let bonusA = 0, bonusB = 0;
             if (match.scoreA > match.scoreB) { bonusA += 2; }
             else if (match.scoreB > match.scoreA) { bonusB += 2; }
-            else { bonusA += 1; bonusB += 1; } // Draw
+            else { bonusA += 1; bonusB += 1; }
 
-            const gw = match.gameweek || document.getElementById('active-gameweek').value;
+            const gw = match.gameweek || "GW3";
 
             try {
                 const batch = writeBatch(db);
@@ -530,7 +809,6 @@
                     const pData = globalPlayersData.find(p => p.id === playerId);
                     if (!pData) return;
 
-                    // Attendance Logic: +1 if full GW attended
                     let attendanceInc = 0;
                     let attended = pData.attendedGWs || [];
                     if (!attended.includes(gw)) { attendanceInc = 1; attended.push(gw); }
@@ -553,84 +831,71 @@
             await updateDoc(doc(db, "matches", matchId), { scoreA: 0, scoreB: 0, status: "pending" });
             await window.loadAllData();
         };
+        
         window.deleteSingleMatch = async (matchId) => {
-            if(confirm("Delete this fixture?")) { await deleteDoc(doc(db, "matches", matchId)); await window.loadAllData(); }
+            if(confirm("Purge selected target completely?")) { await deleteDoc(doc(db, "matches", matchId)); await window.loadAllData(); }
         };
 
-        // --- GW3 Image Fixture Injector ---
-        window.injectGW3Fixtures = async () => {
-            if(!confirm("Inject 30 GW3 matches to database? This uses the exact names from your image. Ensure player profiles exist!")) return;
+        window.addNewPlayer = async () => {
+            const name = document.getElementById("new-player-name").value.trim();
+            if(!name) return;
+            await setDoc(doc(db, "players", name), { totalScore: 0, rawPoints: 0, bonusPoints: 0, attendance: 0, isFreeAgent: true, currentPartner: null, attendedGWs: [] });
+            document.getElementById("new-player-name").value = "";
+            await window.loadAllData();
+        };
+
+        window.deletePlayer = async () => {
+            const name = document.getElementById("delete-player-select").value;
+            if(!name || !confirm(`Permanently wipe ${name}?`)) return;
+            await deleteDoc(doc(db, "players", name));
+            await window.loadAllData();
+        };
+
+        window.pairPlayers = async () => {
+            const p1 = document.getElementById("team-p1").value;
+            const p2 = document.getElementById("team-p2").value;
+            if(!p1 || !p2 || p1 === p2) return alert("Select unique nodes.");
+            await updateDoc(doc(db, "players", p1), { currentPartner: p2, isFreeAgent: false });
+            await updateDoc(doc(db, "players", p2), { currentPartner: p1, isFreeAgent: false });
+            await window.loadAllData();
+        };
+
+        window.archiveTonightChampions = async () => {
+            const activeGW = document.getElementById("active-gameweek").value;
+            if(!confirm(`Archive final points data metrics for ${activeGW}?`)) return;
             
-            const gw3Matches = [
-                // Round 1
-                { r: "Round 1", c: "Court 1", tA: ["Ezra", "Kyle"], tB: ["Leigh", "PROXY"] },
-                { r: "Round 1", c: "Court 2", tA: ["Skye", "Chantell"], tB: ["Darren", "Jason"] },
-                { r: "Round 1", c: "Court 3", tA: ["Goolam", "Aunty Nuraan"], tB: ["Matthew", "Jodie"] },
-                // Round 2
-                { r: "Round 2", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Goolam", "Aunty Nuraan"] },
-                { r: "Round 2", c: "Court 2", tA: ["Baasiet", "Faatimah"], tB: ["Matthew", "Jodie"] },
-                { r: "Round 2", c: "Court 3", tA: ["Aneeqah", "Simone"], tB: ["Figo", "Brady"] },
-                // Round 3
-                { r: "Round 3", c: "Court 1", tA: ["Aneeqah", "Simone"], tB: ["Ezra", "Kyle"] },
-                { r: "Round 3", c: "Court 2", tA: ["Figo", "Brady"], tB: ["Darren", "Jason"] },
-                { r: "Round 3", c: "Court 3", tA: ["Leigh", "PROXY"], tB: ["Skye", "Chantell"] },
-                // Round 4
-                { r: "Round 4", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Baasiet", "Faatimah"] },
-                { r: "Round 4", c: "Court 2", tA: ["Skye", "Chantell"], tB: ["Goolam", "Aunty Nuraan"] },
-                { r: "Round 4", c: "Court 3", tA: ["Darren", "Jason"], tB: ["Matthew", "Jodie"] },
-                // Round 5
-                { r: "Round 5", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Ezra", "Kyle"] },
-                { r: "Round 5", c: "Court 2", tA: ["Baasiet", "Faatimah"], tB: ["Aneeqah", "Simone"] },
-                { r: "Round 5", c: "Court 3", tA: ["Figo", "Brady"], tB: ["Leigh", "PROXY"] },
-                // Round 6
-                { r: "Round 6", c: "Court 1", tA: ["Aneeqah", "Simone"], tB: ["Goolam", "Aunty Nuraan"] },
-                { r: "Round 6", c: "Court 2", tA: ["Ezra", "Kyle"], tB: ["Darren", "Jason"] },
-                { r: "Round 6", c: "Court 3", tA: ["Skye", "Chantell"], tB: ["Matthew", "Jodie"] },
-                // Round 7
-                { r: "Round 7", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Matthew", "Jodie"] },
-                { r: "Round 7", c: "Court 2", tA: ["Figo", "Brady"], tB: ["Goolam", "Aunty Nuraan"] },
-                { r: "Round 7", c: "Court 3", tA: ["Baasiet", "Faatimah"], tB: ["Leigh", "PROXY"] },
-                // Round 8
-                { r: "Round 8", c: "Court 1", tA: ["Aneeqah", "Simone"], tB: ["Skye", "Chantell"] },
-                { r: "Round 8", c: "Court 2", tA: ["Figo", "Brady"], tB: ["Ezra", "Kyle"] },
-                { r: "Round 8", c: "Court 3", tA: ["Leigh", "PROXY"], tB: ["Darren", "Jason"] },
-                // Round 9
-                { r: "Round 9", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Darren", "Jason"] },
-                { r: "Round 9", c: "Court 2", tA: ["Baasiet", "Faatimah"], tB: ["Goolam", "Aunty Nuraan"] },
-                { r: "Round 9", c: "Court 3", tA: ["Ezra", "Kyle"], tB: ["Matthew", "Jodie"] },
-                // Round 10
-                { r: "Round 10", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Figo", "Brady"] },
-                { r: "Round 10", c: "Court 2", tA: ["Aneeqah", "Simone"], tB: ["Leigh", "PROXY"] },
-                { r: "Round 10", c: "Court 3", tA: ["Baasiet", "Faatimah"], tB: ["Skye", "Chantell"] }
-            ];
+            let currentTallies = {};
+            globalMatchesData.forEach(m => {
+                if(m.gameweek === activeGW && m.status === "confirmed") {
+                    const tA = m.teamA.join(" & "); const tB = m.teamB.join(" & ");
+                    currentTallies[tA] = (currentTallies[tA] || 0) + m.scoreA;
+                    currentTallies[tB] = (currentTallies[tB] || 0) + m.scoreB;
+                }
+            });
 
-            try {
-                const batch = writeBatch(db);
-                gw3Matches.forEach((m, i) => {
-                    const matchRef = doc(db, "matches", `gw3_auto_${Date.now()}_${i}`);
-                    batch.set(matchRef, { teamA: m.tA, teamB: m.tB, scoreA: 0, scoreB: 0, status: "pending", gameweek: "GW3", round: m.r, court: m.c });
-                });
-                await batch.commit();
-                alert("30 matches successfully injected into GW3!");
-                await window.loadAllData();
-            } catch (err) { alert("Injection failed: " + err.message); }
+            await setDoc(doc(db, "champions_archive", `${activeGW}_tally`), {
+                gameweek: activeGW,
+                timestamp: Date.now(),
+                standings: currentTallies
+            });
+            alert("Archive capture established successfully.");
         };
 
-        // --- Other Admin Functions ---
         window.dynamicSwapPlayer = async () => {
             const teamIdx = document.getElementById('swap-team-select').value;
             const newPlayer = document.getElementById('swap-new-player').value;
-            if(teamIdx === "" || newPlayer === "") return alert("Select team and new player.");
+            if(teamIdx === "" || newPlayer === "") return alert("Specify targets correctly.");
+            
             const team = activeTeamsList[teamIdx];
-            const toReplace = prompt(`Who is leaving the team? Type exactly:\n${team.p1} OR ${team.p2}`);
-            if(toReplace !== team.p1 && toReplace !== team.p2) return alert("Name didn't match.");
+            const toReplace = prompt(`Identify dropping player node context:\n${team.p1} OR ${team.p2}`);
+            if(toReplace !== team.p1 && toReplace !== team.p2) return alert("Mismatch detected.");
             const keepingPlayer = (toReplace === team.p1) ? team.p2 : team.p1;
 
             try {
                 const batch = writeBatch(db);
-                if (toReplace !== "PROXY") batch.update(doc(db, "players", toReplace), { currentPartner: null, isFreeAgent: false });
+                if (toReplace !== "PROXY") batch.update(doc(db, "players", toReplace), { currentPartner: null, isFreeAgent: true });
                 if (keepingPlayer !== "PROXY") batch.update(doc(db, "players", keepingPlayer), { currentPartner: newPlayer });
-                if (newPlayer !== "PROXY") batch.update(doc(db, "players", newPlayer), { currentPartner: keepingPlayer, isFreeAgent: false });
+                if (newPlayer !== "PROXY" && newPlayer !== "Hishaam") batch.update(doc(db, "players", newPlayer), { currentPartner: keepingPlayer, isFreeAgent: false });
 
                 globalMatchesData.forEach(m => {
                     if (m.status === "pending") {
@@ -638,8 +903,8 @@
                         if(m.teamB.includes(toReplace) && m.teamB.includes(keepingPlayer)) batch.update(doc(db, "matches", m.id), { teamB: [keepingPlayer, newPlayer] });
                     }
                 });
-                await batch.commit(); alert("Swap successful!"); await window.loadAllData();
-            } catch (error) { alert("Error: " + error.message); }
+                await batch.commit(); alert("Swap execution sequence verified complete."); await window.loadAllData();
+            } catch (error) { alert("Execution exception: " + error.message); }
         };
 
         window.createFixture = async () => {
@@ -653,18 +918,63 @@
             await window.loadAllData();
         };
 
-        window.populateAdminDropdowns = () => {
-            let pOptions = '<option value="">-- Player --</option><option value="PROXY">🥷 PROXY</option>';
-            [...globalPlayersData].sort((a,b) => String(a.id).localeCompare(String(b.id))).forEach(p => { if(p.id !== "PROXY") pOptions += `<option value="${p.id}">${p.id}</option>`; });
-            ['team-p1', 'team-p2', 'new-player-name', 'swap-new-player'].forEach(id => { if(document.getElementById(id) && id!=='new-player-name') document.getElementById(id).innerHTML = pOptions; });
-            document.getElementById('delete-player-select').innerHTML = pOptions;
+        window.injectGW3Fixtures = async () => {
+            if(!confirm("Populate 30 scheduled matches mapped exactly to 3 courts?")) return;
+            
+            const schedule = [
+                { r: "Round 1", c: "Court 1", tA: ["Ezra", "Kyle"], tB: ["Leigh", "PROXY"] },
+                { r: "Round 1", c: "Court 2", tA: ["Skye", "Chantell"], tB: ["Darren", "Jason"] },
+                { r: "Round 1", c: "Court 3", tA: ["Goolam", "Aunty Nuraan"], tB: ["Matthew", "Jodie"] },
+                { r: "Round 2", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Goolam", "Aunty Nuraan"] },
+                { r: "Round 2", c: "Court 2", tA: ["Baasiet", "Faatimah"], tB: ["Matthew", "Jodie"] },
+                { r: "Round 2", c: "Court 3", tA: ["Aneeqah", "Simone"], tB: ["Figo", "Brady"] },
+                { r: "Round 3", c: "Court 1", tA: ["Aneeqah", "Simone"], tB: ["Ezra", "Kyle"] },
+                { r: "Round 3", c: "Court 2", tA: ["Figo", "Brady"], tB: ["Darren", "Jason"] },
+                { r: "Round 3", c: "Court 3", tA: ["Leigh", "PROXY"], tB: ["Skye", "Chantell"] },
+                { r: "Round 4", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Baasiet", "Faatimah"] },
+                { r: "Round 4", c: "Court 2", tA: ["Skye", "Chantell"], tB: ["Goolam", "Aunty Nuraan"] },
+                { r: "Round 4", c: "Court 3", tA: ["Darren", "Jason"], tB: ["Matthew", "Jodie"] },
+                { r: "Round 5", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Ezra", "Kyle"] },
+                { r: "Round 5", c: "Court 2", tA: ["Baasiet", "Faatimah"], tB: ["Aneeqah", "Simone"] },
+                { r: "Round 5", c: "Court 3", tA: ["Figo", "Brady"], tB: ["Leigh", "PROXY"] },
+                { r: "Round 6", c: "Court 1", tA: ["Aneeqah", "Simone"], tB: ["Goolam", "Aunty Nuraan"] },
+                { r: "Round 6", c: "Court 2", tA: ["Ezra", "Kyle"], tB: ["Darren", "Jason"] },
+                { r: "Round 6", c: "Court 3", tA: ["Skye", "Chantell"], tB: ["Matthew", "Jodie"] },
+                { r: "Round 7", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Matthew", "Jodie"] },
+                { r: "Round 7", c: "Court 2", tA: ["Figo", "Brady"], tB: ["Goolam", "Aunty Nuraan"] },
+                { r: "Round 7", c: "Court 3", tA: ["Baasiet", "Faatimah"], tB: ["Leigh", "PROXY"] },
+                { r: "Round 8", c: "Court 1", tA: ["Aneeqah", "Simone"], tB: ["Skye", "Chantell"] },
+                { r: "Round 8", c: "Court 2", tA: ["Figo", "Brady"], tB: ["Ezra", "Kyle"] },
+                { r: "Round 8", c: "Court 3", tA: ["Leigh", "PROXY"], tB: ["Darren", "Jason"] },
+                { r: "Round 9", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Darren", "Jason"] },
+                { r: "Round 9", c: "Court 2", tA: ["Baasiet", "Faatimah"], tB: ["Goolam", "Aunty Nuraan"] },
+                { r: "Round 9", c: "Court 3", tA: ["Ezra", "Kyle"], tB: ["Matthew", "Jodie"] },
+                { r: "Round 10", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Figo", "Brady"] },
+                { r: "Round 10", c: "Court 2", tA: ["Aneeqah", "Simone"], tB: ["Leigh", "PROXY"] },
+                { r: "Round 10", c: "Court 3", tA: ["Baasiet", "Faatimah"], tB: ["Skye", "Chantell"] }
+            ];
 
-            let tOptions = '<option value="">-- Team --</option>';
-            activeTeamsList.forEach((t, i) => { tOptions += `<option value="${i}">${t.name}</option>`; });
-            ['fix-teamA', 'fix-teamB', 'delete-team-select', 'swap-team-select'].forEach(id => document.getElementById(id).innerHTML = tOptions);
+            try {
+                const batch = writeBatch(db);
+                schedule.forEach((m, i) => {
+                    const matchRef = doc(db, "matches", `gw3_map_${i}`);
+                    batch.set(matchRef, { teamA: m.tA, teamB: m.tB, scoreA: 0, scoreB: 0, status: "pending", gameweek: "GW3", round: m.r, court: m.c });
+                });
+                await batch.commit(); alert("30 configuration frames initialized successfully."); await window.loadAllData();
+            } catch(e) { alert("Sync error: " + e.message); }
         };
 
-        // --- Auth ---
+        window.populateAdminDropdowns = () => {
+            let pOptions = '<option value="">-- Choose Node --</option><option value="PROXY">🥷 PROXY</option>';
+            [...globalPlayersData].sort((a,b) => String(a.id).localeCompare(String(b.id))).forEach(p => { if(p.id !== "PROXY") pOptions += `<option value="${p.id}">${p.id}</option>`; });
+            ['team-p1', 'team-p2', 'swap-new-player'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerHTML = pOptions; });
+            document.getElementById('delete-player-select').innerHTML = pOptions;
+
+            let tOptions = '<option value="">-- Choose Team Struct --</option>';
+            activeTeamsList.forEach((t, i) => { tOptions += `<option value="${i}">${t.name}</option>`; });
+            ['fix-teamA', 'fix-teamB', 'swap-team-select'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerHTML = tOptions; });
+        };
+
         onAuthStateChanged(auth, (user) => {
             isAdminLoggedIn = !!user;
             document.querySelectorAll('.admin-section').forEach(s => s.style.display = user ? 'block' : 'none');
@@ -672,20 +982,75 @@
             document.getElementById("login-section").style.display = user ? 'none' : 'block';
             window.loadAllData();
         });
+
         window.loginAdmin = () => signInWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("password").value);
         window.logoutAdmin = () => signOut(auth);
 
-        // Modal
-        let playerChart = null;
+        let modalChartInstance = null;
         window.openPlayerModal = (playerId) => {
             const player = globalPlayersData.find(p => p.id === playerId);
             if(!player) return;
-            document.getElementById("modal-name").innerText = player.id + "'s Profile";
-            document.getElementById("player-modal").style.display = "block";
+            
+            document.getElementById("modal-name").innerText = `${player.id} Tracking`;
+            document.getElementById("player-modal").style.display = "flex";
+
+            let gwDataPoints = { "GW1": 0, "GW2": 0, "GW3": 0, "GW4": 0 };
+            globalMatchesData.forEach(m => {
+                if(m.status === "confirmed") {
+                    const isTeamA = m.teamA.includes(playerId);
+                    const isTeamB = m.teamB.includes(playerId);
+                    if(isTeamA || isTeamB) {
+                        const score = isTeamA ? m.scoreA : m.scoreB;
+                        const opScore = isTeamA ? m.scoreB : m.scoreA;
+                        let bonus = 0;
+                        if(score > opScore) bonus = 2;
+                        else if(score === opScore) bonus = 1;
+                        
+                        if(gwDataPoints[m.gameweek] !== undefined) {
+                            gwDataPoints[m.gameweek] += (score + bonus);
+                        }
+                    }
+                }
+            });
+
+            // Cumulative trend projection
+            let labelArr = ["Start", "GW1", "GW2", "GW3", "GW4"];
+            let runningSum = 0;
+            let dataArr = [0, 
+                runningSum += gwDataPoints["GW1"], 
+                runningSum += gwDataPoints["GW2"], 
+                runningSum += gwDataPoints["GW3"], 
+                runningSum += gwDataPoints["GW4"]
+            ];
+
             const ctx = document.getElementById('playerChart').getContext('2d');
-            if(playerChart) playerChart.destroy(); 
-            playerChart = new Chart(ctx, { type: 'line', data: { labels: ['Start', 'Current'], datasets: [{ label: 'Pts History', data: [0, player.totalScore], borderColor: '#18bc9c', backgroundColor: 'rgba(24, 188, 156, 0.2)', borderWidth: 3, fill: true }] }, options: { responsive: true } });
+            if(modalChartInstance) modalChartInstance.destroy();
+            modalChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labelArr,
+                    datasets: [{
+                        label: 'Total Value Sequence',
+                        data: dataArr,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true }
+                    }
+                }
+            });
         };
+
         window.closeModal = () => document.getElementById("player-modal").style.display = "none";
 
         listenToTimer(); window.loadAllData();
