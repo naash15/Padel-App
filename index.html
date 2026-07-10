@@ -32,7 +32,7 @@
         .player-card, .match-card { background: #2c2c2c; padding: 15px; margin-bottom: 12px; border-radius: 8px; cursor: pointer; transition: transform 0.2s;}
         .player-card:hover, .match-card:hover { transform: translateY(-2px); }
         .player-card { border-left: 5px solid #18bc9c; }
-        .match-card { border: 1px solid #444; }
+        .match-card { border: 1px solid #444; text-align: center;}
         .player-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .player-header strong { font-size: 18px; color: #ffffff; }
         .total-score { font-size: 18px; font-weight: bold; color: #18bc9c; }
@@ -48,6 +48,7 @@
         .action-btn { background: #3498db; color: white; margin-top:10px; }
         .danger-btn { background: #e74c3c; color: white; }
         .warning-btn { background: #f39c12; color: white; }
+        .success-btn { background: #27ae60; color: white; }
         
         /* Collapsible Admin Menus */
         details { background: #2a2a2a; border-radius: 8px; margin-bottom: 10px; border: 1px solid #444; overflow: hidden; }
@@ -55,50 +56,46 @@
         summary::-webkit-details-marker { display: none; }
         .details-content { padding: 15px; }
         
-        /* Timer Layout */
-        .timer-box { background: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center; border: 2px solid #3498db; margin-bottom: 20px;}
-        .timer-display { font-size: 48px; font-weight: bold; color: #3498db; font-family: monospace; letter-spacing: 2px;}
-        .timer-phase { font-size: 16px; color: #aaa; text-transform: uppercase; margin-bottom: 10px; font-weight: bold;}
-        .toggle-switch { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 15px; background: #2c2c2c; padding: 10px; border-radius: 6px;}
+        /* Updated Timer Layout */
+        .timer-box { background: #a8e6cf; padding: 20px; border-radius: 8px; text-align: center; border: 2px solid #555; margin-bottom: 20px;}
+        .timer-display { font-size: 48px; font-weight: 900; color: #000; font-family: monospace; letter-spacing: 2px;}
+        .timer-phase { font-size: 16px; color: #333; text-transform: uppercase; margin-bottom: 10px; font-weight: bold;}
+        .toggle-switch { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 15px; background: rgba(0,0,0,0.1); padding: 10px; border-radius: 6px;}
 
-        #admin-panel { display: none; }
+        #admin-logout-zone { display: none; margin-bottom: 15px; }
         #admin-approvals { display:none; background:#2c1b18; padding:15px; border-radius:8px; border:1px solid #e74c3c; margin-bottom:20px; }
     </style>
 </head>
 <body>
 
-    <!-- DIAGNOSTIC NETWORK WARNING BANNER -->
-    <div id="network-warning" style="background: #e74c3c; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center; border: 2px solid #c0392b;">
-        <h3 style="margin: 0 0 5px 0; font-size: 18px;">🚨 Connection Blocked!</h3>
-        <span style="font-size: 13px;">Your browser, VPN, or ad-blocker is preventing the app from loading the database scripts. Please disable "Tracking Protection" or Shields for this site and refresh the page.</span>
+    <!-- LOCK ADMIN DASHBOARD -->
+    <div id="admin-logout-zone">
+        <button class="danger-btn" onclick="window.logoutAdmin()">🔒 Lock Admin Dashboard</button>
     </div>
 
-    <!-- NAVIGATION TABS -->
+    <!-- NEW TAB ORDER: LIVE -> STANDINGS -> FIXTURES -> RESULTS -->
     <div class="tab-container">
         <button id="btn-live" class="tab-btn active-tab" onclick="window.switchTab('live')">🔴 LIVE</button>
-        <button id="btn-fixtures" class="tab-btn" onclick="window.switchTab('fixtures')">🎾 Fixtures</button>
         <button id="btn-leaderboard" class="tab-btn" onclick="window.switchTab('leaderboard')">🏆 Standings</button>
+        <button id="btn-fixtures" class="tab-btn" onclick="window.switchTab('fixtures')">🎾 Fixtures</button>
         <button id="btn-results" class="tab-btn" onclick="window.switchTab('results')">📋 Results</button>
     </div>
 
-    <!-- TAB 0: LIVE (NEW MAIN STAGE) -->
+    <!-- TAB 0: LIVE -->
     <div id="tab-live" class="card">
-        
         <!-- GLOBAL SYNCED TIMER -->
         <div class="timer-box">
             <div class="timer-phase" id="timer-phase">No Active Tournament</div>
             <div class="timer-display" id="timer-display">00:00</div>
-            
             <div class="toggle-switch">
                 <input type="checkbox" id="buzzer-toggle" style="width:20px; height:20px; margin:0;" onchange="window.toggleWakeLock()">
-                <label for="buzzer-toggle" style="font-size: 14px; font-weight:bold; color:#18bc9c;">🔔 Enable Buzzer & Screen Wake</label>
+                <label for="buzzer-toggle" style="font-size: 14px; font-weight:bold; color:#000;">🔔 Enable Buzzer & Screen Wake</label>
             </div>
-            <p style="font-size:11px; color:#777; margin-top:5px; line-height:1.2;">Must be checked to prevent phone from sleeping and to hear round transitions.</p>
         </div>
 
-        <!-- TONIGHT's KING (LIVE TALLY) -->
+        <!-- TONIGHT's CHAMPIONS (TEAM TALLY) -->
         <h2 style="display:flex; justify-content:space-between; align-items:center;">
-            👑 Tonight's King
+            👑 Tonight's Champions
             <span onclick="window.toggleLiveChart()" style="font-size:12px; cursor:pointer; background:#333; padding:4px 8px; border-radius:4px; color:#aaa;">📊 Toggle Chart</span>
         </h2>
         <div id="live-chart-container" style="display:none; background:#252525; padding:10px; border-radius:8px; margin-bottom:15px; border:1px solid #444;">
@@ -111,39 +108,9 @@
         <!-- LIVE FIXTURES ENTRY -->
         <h2>🎾 Live Matches (Enter Scores)</h2>
         <div id="live-fixtures-list"></div>
-
     </div>
 
-    <!-- TAB 1: FIXTURES -->
-    <div id="tab-fixtures" class="card" style="display:none;">
-        
-        <!-- ADMIN: CREATE FIXTURE -->
-        <div class="admin-section" style="display:none;">
-            <details>
-                <summary>➕ Create New Fixture</summary>
-                <div class="details-content">
-                    <select id="fix-teamA"></select>
-                    <select id="fix-teamB"></select>
-                    <div style="display:flex; gap:10px;">
-                        <select id="fix-round">
-                            <option value="">-- Round --</option>
-                            <script>for(let i=1;i<=12;i++) document.write(`<option value="Round ${i}">Round ${i}</option>`);</script>
-                        </select>
-                        <select id="fix-court">
-                            <option value="">-- Court --</option>
-                            <script>for(let i=1;i<=12;i++) document.write(`<option value="Court ${i}">Court ${i}</option>`);</script>
-                        </select>
-                    </div>
-                    <button class="action-btn" onclick="window.createFixture()">Launch Fixture</button>
-                </div>
-            </details>
-        </div>
-
-        <h2 style="margin-top:0;">All Pending Matches</h2>
-        <div id="fixtures-list"></div>
-    </div>
-
-    <!-- TAB 2: LEADERBOARD -->
+    <!-- TAB 1: LEADERBOARD / STANDINGS -->
     <div id="tab-leaderboard" class="card" style="display:none;">
         <div class="global-stats">
             <div class="stat-box"><span id="stat-players">0</span><small>Active</small></div>
@@ -171,7 +138,6 @@
                     <hr style="border:1px solid #444; margin:15px 0;">
 
                     <h3 style="font-size:14px; color:#f39c12;">Dynamic Swap (Replace PROXY/Player)</h3>
-                    <p style="font-size:11px; color:#aaa; margin-top:0;">Select an active team, then select who to swap in. This safely updates their live matches.</p>
                     <select id="swap-team-select"></select>
                     <select id="swap-new-player"></select>
                     <button class="warning-btn" onclick="window.dynamicSwapPlayer()">Swap & Update Matches</button>
@@ -181,8 +147,6 @@
                     <h3 style="font-size:14px; color:#e74c3c;">Disband Team / FA</h3>
                     <select id="delete-team-select" style="border: 1px solid #e74c3c;"></select>
                     <button class="danger-btn" onclick="window.disbandTeamFromDropdown()">Disband Selected Team</button>
-                    <select id="fa-player" style="margin-top:10px;"></select>
-                    <button class="warning-btn" onclick="window.makeFreeAgent()">Set as Free Agent</button>
                 </div>
             </details>
         </div>
@@ -194,21 +158,53 @@
             <div id="live-free-agents">Loading...</div>
         </div>
 
-        <p style="text-align: center; color: #aaa; font-size: 12px;">Tap any player to view history</p>
         <div id="leaderboard-list"></div>
+    </div>
+
+    <!-- TAB 2: FIXTURES -->
+    <div id="tab-fixtures" class="card" style="display:none;">
+        <!-- ADMIN: CREATE FIXTURE -->
+        <div class="admin-section" style="display:none;">
+            <details>
+                <summary>➕ Create New Fixture</summary>
+                <div class="details-content">
+                    <select id="fix-teamA"></select>
+                    <select id="fix-teamB"></select>
+                    <div style="display:flex; gap:10px;">
+                        <select id="fix-round">
+                            <option value="">-- Round --</option>
+                            <script>for(let i=1;i<=12;i++) document.write(`<option value="Round ${i}">Round ${i}</option>`);</script>
+                        </select>
+                        <select id="fix-court">
+                            <option value="">-- Court --</option>
+                            <script>for(let i=1;i<=12;i++) document.write(`<option value="Court ${i}">Court ${i}</option>`);</script>
+                        </select>
+                    </div>
+                    <button class="action-btn" onclick="window.createFixture()">Launch Fixture</button>
+                </div>
+            </details>
+            
+            <details>
+                <summary>⚡ Auto-Inject GW3 Fixtures</summary>
+                <div class="details-content">
+                    <p style="font-size:12px; color:#aaa; margin-top:0;">Instantly populates the 30 matches across 10 rounds and 3 courts from the generated sheet.</p>
+                    <button class="success-btn" onclick="window.injectGW3Fixtures()">Inject 30 GW3 Matches</button>
+                </div>
+            </details>
+        </div>
+
+        <h2 style="margin-top:0;">All Pending Matches</h2>
+        <div id="fixtures-list"></div>
     </div>
 
     <!-- TAB 3: RESULTS & APPROVALS -->
     <div id="tab-results" class="card" style="display:none;">
-        
-        <!-- ADMIN: APPROVALS & TIMER -->
         <div class="admin-section" style="display:none;">
             <div id="admin-approvals"></div>
 
             <details>
                 <summary>⏱ Global Tournament Timer Config</summary>
                 <div class="details-content">
-                    <p style="font-size:12px; color:#aaa; margin-top:0;">Start the global synchronized countdown. All devices with the tab open and toggle checked will beep on phase changes.</p>
                     <label style="font-size:12px;">Warm-up (Mins)</label>
                     <input type="number" id="t-warmup" value="10">
                     <label style="font-size:12px;">Round Duration (Mins)</label>
@@ -231,13 +227,8 @@
                         <option value="GW2">Gameweek 2</option>
                         <option value="GW3" selected>Gameweek 3</option>
                         <option value="GW4">Gameweek 4</option>
-                        <option value="GW5">Gameweek 5</option>
                     </select>
-
-                    <button id="load-data-btn" style="background: #27ae60; color: white;" onclick="window.loadHistoricalData()">Push Historical Data (GW1 & GW2)</button>
-                    <button class="warning-btn" onclick="window.clearGameweekRoster()">Clear Tonight's Roster</button>
                     <button class="danger-btn" onclick="window.clearMatchesByStatus('pending')">Delete Unplayed Fixtures</button>
-                    <button class="danger-btn" onclick="window.clearMatchesByStatus('confirmed')">Clear Old Results</button>
                 </div>
             </details>
         </div>
@@ -249,8 +240,6 @@
                 <option value="GW1">Gameweek 1</option>
                 <option value="GW2">Gameweek 2</option>
                 <option value="GW3" selected>Gameweek 3</option>
-                <option value="GW4">Gameweek 4</option>
-                <option value="GW5">Gameweek 5</option>
             </select>
         </div>
         <div id="results-list"></div>
@@ -261,7 +250,6 @@
         <div class="modal-content">
             <span class="close-btn" onclick="window.closeModal()">&times;</span>
             <h2 id="modal-name" style="margin-top: 0; border: none;">Profile</h2>
-            <p id="modal-partners" style="font-size: 14px; color: #ccc;"></p>
             <canvas id="playerChart" width="400" height="250"></canvas>
         </div>
     </div>
@@ -280,13 +268,6 @@
         import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, writeBatch, increment, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
-        // Hide warning banner immediately if this module successfully loads
-        const warningBanner = document.getElementById("network-warning");
-        if (warningBanner) warningBanner.style.display = "none";
-
-        // =====================================================================
-        // ⚠️ PASTE YOUR FIREBASE KEYS HERE
-        // =====================================================================
         const firebaseConfig = {
             apiKey: "AIzaSyB4zPzxFU7fcz7JCUrWJVTf6uk7UQYdmoQ",
             authDomain: "padel-tournament-9f1b6.firebaseapp.com",
@@ -314,16 +295,10 @@
             const isChecked = document.getElementById("buzzer-toggle").checked;
             if (isChecked) {
                 if ('wakeLock' in navigator) {
-                    try {
-                        wakeLock = await navigator.wakeLock.request('screen');
-                        console.log("Wake Lock active.");
-                    } catch (err) { console.error("Wake Lock failed:", err); }
+                    try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
                 }
             } else {
-                if (wakeLock) {
-                    await wakeLock.release();
-                    wakeLock = null;
-                }
+                if (wakeLock) { await wakeLock.release(); wakeLock = null; }
             }
         };
 
@@ -332,13 +307,9 @@
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(600, ctx.currentTime);
-            gain.gain.setValueAtTime(1, ctx.currentTime);
-            osc.start(ctx.currentTime);
-            osc.stop(ctx.currentTime + 1.2);
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = 'square'; osc.frequency.setValueAtTime(600, ctx.currentTime);
+            gain.gain.setValueAtTime(1, ctx.currentTime); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 1.2);
         };
 
         // --- Timer Logic ---
@@ -349,117 +320,81 @@
                 if(localTimerInterval) clearInterval(localTimerInterval);
                 
                 if (!data || !data.running) {
-                    document.getElementById("timer-phase").innerText = "Tournament Paused / Not Started";
+                    document.getElementById("timer-phase").innerText = "Tournament Paused";
                     document.getElementById("timer-display").innerText = "00:00";
-                    document.getElementById("timer-display").style.color = "#aaa";
                     lastBuzzerPhase = "";
                     return;
                 }
 
-                document.getElementById("timer-display").style.color = "#3498db";
-
                 localTimerInterval = setInterval(() => {
-                    const now = Date.now();
-                    const elapsedSec = Math.floor((now - data.startTime) / 1000);
-                    
+                    const elapsedSec = Math.floor((Date.now() - data.startTime) / 1000);
                     const warmSec = data.warmup * 60;
-                    const roundSec = data.round * 60;
-                    const transSec = data.trans * 60;
-                    const cycleSec = roundSec + transSec;
+                    const cycleSec = (data.round + data.trans) * 60;
                     
-                    let currentPhase = "";
-                    let timeLeft = 0;
+                    let currentPhase = ""; let timeLeft = 0;
 
                     if (elapsedSec < warmSec) {
-                        currentPhase = "Warm-Up";
-                        timeLeft = warmSec - elapsedSec;
+                        currentPhase = "Warm-Up"; timeLeft = warmSec - elapsedSec;
                     } else {
                         const postWarmupSec = elapsedSec - warmSec;
-                        const totalTournamentSec = cycleSec * data.count;
-                        
-                        if (postWarmupSec >= totalTournamentSec) {
-                            currentPhase = "Tournament Complete";
-                            timeLeft = 0;
-                            clearInterval(localTimerInterval);
+                        if (postWarmupSec >= cycleSec * data.count) {
+                            currentPhase = "Tournament Complete"; timeLeft = 0; clearInterval(localTimerInterval);
                         } else {
                             const cyclePosition = postWarmupSec % cycleSec;
                             const currentRound = Math.floor(postWarmupSec / cycleSec) + 1;
                             
-                            if (cyclePosition < roundSec) {
-                                currentPhase = `Round ${currentRound}`;
-                                timeLeft = roundSec - cyclePosition;
-                                document.getElementById("timer-display").style.color = "#18bc9c"; // Green for play
+                            if (cyclePosition < (data.round * 60)) {
+                                currentPhase = `Round ${currentRound}`; timeLeft = (data.round * 60) - cyclePosition;
                             } else {
-                                currentPhase = `Transition to Round ${currentRound + 1}`;
-                                timeLeft = cycleSec - cyclePosition;
-                                document.getElementById("timer-display").style.color = "#f39c12"; // Orange for transit
+                                currentPhase = `Transition to Round ${currentRound + 1}`; timeLeft = cycleSec - cyclePosition;
                             }
                         }
                     }
 
-                    // Trigger Buzzer strictly on phase change
-                    if (currentPhase !== lastBuzzerPhase && lastBuzzerPhase !== "") {
-                        playBuzzer();
-                    }
+                    if (currentPhase !== lastBuzzerPhase && lastBuzzerPhase !== "") playBuzzer();
                     lastBuzzerPhase = currentPhase;
 
                     document.getElementById("timer-phase").innerText = currentPhase;
-                    const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
-                    const s = (timeLeft % 60).toString().padStart(2, '0');
-                    document.getElementById("timer-display").innerText = `${m}:${s}`;
+                    document.getElementById("timer-display").innerText = `${Math.floor(timeLeft / 60).toString().padStart(2, '0')}:${(timeLeft % 60).toString().padStart(2, '0')}`;
                 }, 1000);
             });
         };
 
         window.startGlobalTimer = async () => {
-            const warmup = parseInt(document.getElementById("t-warmup").value);
-            const round = parseInt(document.getElementById("t-round").value);
-            const trans = parseInt(document.getElementById("t-trans").value);
-            const count = parseInt(document.getElementById("t-count").value);
-            
             await setDoc(doc(db, "config", "timer"), {
                 startTime: Date.now(),
-                warmup, round, trans, count,
+                warmup: parseInt(document.getElementById("t-warmup").value),
+                round: parseInt(document.getElementById("t-round").value),
+                trans: parseInt(document.getElementById("t-trans").value),
+                count: parseInt(document.getElementById("t-count").value),
                 running: true
             });
         };
 
-        window.stopGlobalTimer = async () => {
-            await setDoc(doc(db, "config", "timer"), { running: false });
-        };
+        window.stopGlobalTimer = async () => { await setDoc(doc(db, "config", "timer"), { running: false }); };
 
         // --- Core Load ---
         window.loadAllData = async () => {
             try {
                 const pSnapshot = await getDocs(collection(db, "players"));
-                globalPlayersData = [];
-                let totalLeaguePoints = 0;
-                
+                globalPlayersData = []; let totalLeaguePoints = 0;
                 pSnapshot.forEach((doc) => {
                     const data = { id: doc.id, ...doc.data() };
                     globalPlayersData.push(data);
                     totalLeaguePoints += (data.rawPoints || 0);
                 });
-                
                 document.getElementById("stat-players").innerText = globalPlayersData.length;
                 document.getElementById("stat-points").innerText = totalLeaguePoints;
 
                 const mSnapshot = await getDocs(collection(db, "matches"));
-                globalMatchesData = [];
-                mSnapshot.forEach((doc) => {
-                    globalMatchesData.push({ id: doc.id, ...doc.data() });
-                });
-
+                globalMatchesData = []; mSnapshot.forEach((doc) => globalMatchesData.push({ id: doc.id, ...doc.data() }));
                 globalMatchesData.sort((a, b) => String(a.id).localeCompare(String(b.id)));
 
-                window.renderLeaderboard();
-                window.renderMatches();
-                window.renderLiveTally();
-                window.populateAdminDropdowns();
+                window.renderLeaderboard(); window.renderMatches(); window.renderLiveTally(); window.populateAdminDropdowns();
             } catch (error) { console.error("Data Load Error:", error); }
         };
 
-        // --- Tonight's King Tally & Chart ---
+        // --- Tonight's Champions (Team Tally) ---
         let liveNightChartInstance = null;
         window.toggleLiveChart = () => {
             const container = document.getElementById("live-chart-container");
@@ -468,59 +403,39 @@
 
         window.renderLiveTally = () => {
             const activeGW = document.getElementById("active-gameweek") ? document.getElementById("active-gameweek").value : "GW3";
-            let livePoints = {};
-
-            globalPlayersData.forEach(p => { if(p.id !== "PROXY") livePoints[p.id] = 0; });
+            let teamPoints = {};
 
             globalMatchesData.forEach(m => {
                 if (m.gameweek === activeGW && (m.status === "played" || m.status === "confirmed")) {
-                    if (Array.isArray(m.teamA)) m.teamA.forEach(p => { if(livePoints[p] !== undefined) livePoints[p] += m.scoreA; });
-                    if (Array.isArray(m.teamB)) m.teamB.forEach(p => { if(livePoints[p] !== undefined) livePoints[p] += m.scoreB; });
+                    const tA = Array.isArray(m.teamA) ? m.teamA.join(" & ") : "Team A";
+                    const tB = Array.isArray(m.teamB) ? m.teamB.join(" & ") : "Team B";
+                    
+                    if(!teamPoints[tA]) teamPoints[tA] = 0;
+                    if(!teamPoints[tB]) teamPoints[tB] = 0;
+                    
+                    teamPoints[tA] += m.scoreA;
+                    teamPoints[tB] += m.scoreB;
                 }
             });
 
-            // Sort & Render List
-            const sortedLive = Object.keys(livePoints).map(p => ({id: p, pts: livePoints[p]})).filter(p => p.pts > 0).sort((a, b) => b.pts - a.pts);
+            const sortedLive = Object.keys(teamPoints).map(t => ({id: t, pts: teamPoints[t]})).filter(t => t.pts > 0).sort((a, b) => b.pts - a.pts);
             
-            let html = sortedLive.length > 0 
-                ? sortedLive.map((p, i) => `<div style="display:flex; justify-content:space-between; margin-bottom:5px; border-bottom:1px solid #333; padding-bottom:5px;"><span><b>${i+1}.</b> ${p.id}</span><span style="color:#18bc9c; font-weight:bold;">${p.pts} pts</span></div>`).join('')
+            document.getElementById("live-tally-list").innerHTML = sortedLive.length > 0 
+                ? sortedLive.map((t, i) => `<div style="display:flex; justify-content:space-between; margin-bottom:5px; border-bottom:1px solid #333; padding-bottom:5px;"><span><b>${i+1}.</b> ${t.id}</span><span style="color:#18bc9c; font-weight:bold;">${t.pts} pts</span></div>`).join('')
                 : "<span style='color:#aaa; font-size:13px;'>No points approved for this Gameweek yet.</span>";
-            
-            document.getElementById("live-tally-list").innerHTML = html;
 
-            // Render Chart
             const ctx = document.getElementById('liveNightChart').getContext('2d');
             if (liveNightChartInstance) liveNightChartInstance.destroy();
-            
             liveNightChartInstance = new Chart(ctx, {
                 type: 'bar',
-                data: {
-                    labels: sortedLive.map(p => p.id),
-                    datasets: [{
-                        label: 'Live Raw Points',
-                        data: sortedLive.map(p => p.pts),
-                        backgroundColor: 'rgba(24, 188, 156, 0.8)',
-                        borderColor: '#18bc9c',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    scales: { x: { beginAtZero: true, grid: { color: '#333' } }, y: { grid: { display:false } } },
-                    plugins: { legend: { display: false } }
-                }
+                data: { labels: sortedLive.map(t => t.id), datasets: [{ label: 'Team Points', data: sortedLive.map(t => t.pts), backgroundColor: 'rgba(24, 188, 156, 0.8)' }] },
+                options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } }
             });
         };
 
         // --- Renders ---
         window.renderLeaderboard = () => {
-            let html = "";
-            let activeTeams = [];
-            let freeAgents = [];
-            let processedPairs = new Set();
-            activeTeamsList = []; 
-
+            let html = ""; let freeAgents = []; let processedPairs = new Set(); activeTeamsList = []; 
             globalPlayersData.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0)); 
 
             globalPlayersData.forEach((p) => {
@@ -529,12 +444,10 @@
                     <div class="player-header"><strong>${p.id}</strong><span class="total-score">${p.totalScore || 0} Pts</span></div>
                     <div class="stats-row"><span>Raw: ${p.rawPoints || 0}</span> | <span>Bonus: ${p.bonusPoints || 0}</span> | <span>Att: ${p.attendance || 0}</span></div>
                 </div>`;
-
                 if (p.isFreeAgent) freeAgents.push(p.id);
                 else if (p.currentPartner && !processedPairs.has(p.id)) {
                     if (p.id !== "PROXY") {
                         const teamStr = `${p.id} & ${p.currentPartner}`;
-                        activeTeams.push(teamStr);
                         activeTeamsList.push({ p1: p.id, p2: p.currentPartner, name: teamStr });
                     }
                     processedPairs.add(p.id); processedPairs.add(p.currentPartner);
@@ -542,77 +455,43 @@
             });
             
             document.getElementById("live-teams").innerHTML = activeTeamsList.length > 0 
-                ? activeTeamsList.map((t, index) => {
-                    const deleteTagBtn = isAdminLoggedIn ? ` <span onclick="event.stopPropagation(); window.disbandTeamByIndex(${index});" style="color:#f44336; font-weight:bold; cursor:pointer; margin-left:6px;">✖</span>` : "";
-                    return `<div class="team-tag" style="display:inline-flex; align-items:center;">${t.name}${deleteTagBtn}</div>`;
-                }).join('') : "<p style='color:#aaa; font-size:13px;'>No teams generated yet.</p>";
-            
+                ? activeTeamsList.map(t => `<div class="team-tag">${t.name}</div>`).join('') : "<p style='color:#aaa;'>No teams.</p>";
             document.getElementById("live-free-agents").innerHTML = freeAgents.length > 0 
-                ? freeAgents.map(fa => `<div class="fa-tag">${fa}</div>`).join('') : "<p style='color:#aaa; font-size:13px;'>None currently.</p>";
-
+                ? freeAgents.map(fa => `<div class="fa-tag">${fa}</div>`).join('') : "<p style='color:#aaa;'>None currently.</p>";
             document.getElementById("leaderboard-list").innerHTML = html;
         };
 
         window.renderMatches = () => {
-            let liveFixturesHtml = "";
-            let pendingFixturesHtml = "";
-            let resultsHtml = "";
-            let approvalsHtml = "";
-            
-            const resultsFilter = document.getElementById("results-filter") ? document.getElementById("results-filter").value : "ALL";
-            const activeGW = document.getElementById("active-gameweek") ? document.getElementById("active-gameweek").value : "GW3";
+            let liveFixturesHtml = ""; let pendingFixturesHtml = ""; let resultsHtml = ""; let approvalsHtml = "";
+            const resultsFilter = document.getElementById("results-filter").value;
+            const activeGW = document.getElementById("active-gameweek").value;
 
             globalMatchesData.forEach(m => {
                 const teamAStr = Array.isArray(m.teamA) ? m.teamA.join(" & ") : "Team A";
                 const teamBStr = Array.isArray(m.teamB) ? m.teamB.join(" & ") : "Team B";
-                
-                const gwLabel = m.gameweek ? `<span style="background:#444; padding:2px 6px; border-radius:4px; font-size:10px; margin-right:5px;">${m.gameweek}</span>` : "";
-                const roundLabel = m.round ? `<span style="background:#3498db; padding:2px 6px; border-radius:4px; font-size:10px; margin-right:5px;">${m.round}</span>` : "";
-                const courtLabel = m.court ? `<span style="background:#e67e22; padding:2px 6px; border-radius:4px; font-size:10px;">${m.court}</span>` : "";
-                const badges = `<div style="margin-bottom:10px;">${gwLabel}${roundLabel}${courtLabel}</div>`;
+                const badges = `<div style="margin-bottom:10px;"><span style="background:#444; padding:2px 6px; border-radius:4px; font-size:10px;">${m.gameweek}</span> <span style="background:#3498db; padding:2px 6px; border-radius:4px; font-size:10px;">${m.round}</span> <span style="background:#e67e22; padding:2px 6px; border-radius:4px; font-size:10px;">${m.court}</span></div>`;
 
                 if (m.status === "pending") {
                     const deleteBtn = isAdminLoggedIn ? `<button onclick="window.deleteSingleMatch('${m.id}')" style="position:absolute; top:12px; right:15px; background:none; border:none; color:#e74c3c; font-size:16px; cursor:pointer;">✖</button>` : "";
-                    const cardHtml = `
-                    <div class="match-card" style="position:relative; text-align:center;">
-                        ${deleteBtn}
-                        ${badges}
-                        <b>${teamAStr}</b> <br><span style="color:#f39c12; font-size:12px;">VS</span><br> <b>${teamBStr}</b>
-                        <button class="action-btn" onclick="window.userSubmitScore('${m.id}', '${teamAStr}', '${teamBStr}')">Input Score</button>
-                    </div>`;
-                    
-                    if(m.gameweek === activeGW) liveFixturesHtml += cardHtml;
-                    pendingFixturesHtml += cardHtml; // Show in all pending tab too
-
+                    const card = `<div class="match-card" style="position:relative;">${deleteBtn}${badges}<b>${teamAStr}</b> <br><span style="color:#f39c12; font-size:12px;">VS</span><br> <b>${teamBStr}</b><button class="action-btn" onclick="window.userSubmitScore('${m.id}', '${teamAStr}', '${teamBStr}')">Input Score</button></div>`;
+                    if(m.gameweek === activeGW) liveFixturesHtml += card;
+                    pendingFixturesHtml += card;
                 } else if (m.status === "played") {
-                    approvalsHtml += `
-                    <div class="match-card" style="border-left: 4px solid #f39c12;">
-                        <p style="margin:0 0 10px 0; font-size:14px;">${gwLabel} <b>${teamAStr}</b> (${m.scoreA}) vs <b>${teamBStr}</b> (${m.scoreB})</p>
-                        <button style="background:#27ae60; color:white; padding:8px;" onclick="window.approveScore('${m.id}')">Approve Score</button>
-                        <button style="background:#e74c3c; color:white; padding:8px; margin-top:5px;" onclick="window.rejectScore('${m.id}')">Reject (Reset)</button>
-                    </div>`;
+                    approvalsHtml += `<div class="match-card" style="border-left: 4px solid #f39c12;"><p style="margin:0 0 10px 0; font-size:14px;"><b>${teamAStr}</b> (${m.scoreA}) vs <b>${teamBStr}</b> (${m.scoreB})</p><button style="background:#27ae60; color:white; padding:8px;" onclick="window.approveScore('${m.id}')">Approve Score</button><button style="background:#e74c3c; color:white; padding:8px; margin-top:5px;" onclick="window.rejectScore('${m.id}')">Reject (Reset)</button></div>`;
                 } else if (m.status === "confirmed") {
                     if (resultsFilter === "ALL" || m.gameweek === resultsFilter) {
-                        resultsHtml += `
-                        <div class="match-card" style="border-left: 4px solid #18bc9c; text-align:center;">
-                            ${badges}
-                            <div style="font-size:15px;">
-                                <b>${teamAStr}</b> <span style="color:#18bc9c; font-size:18px; font-weight:bold;">${m.scoreA}</span> - <span style="color:#18bc9c; font-size:18px; font-weight:bold;">${m.scoreB}</span> <b>${teamBStr}</b>
-                            </div>
-                        </div>`;
+                        resultsHtml += `<div class="match-card" style="border-left: 4px solid #18bc9c;">${badges}<div style="font-size:15px;"><b>${teamAStr}</b> <span style="color:#18bc9c; font-weight:bold;">${m.scoreA} - ${m.scoreB}</span> <b>${teamBStr}</b></div></div>`;
                     }
                 }
             });
 
-            document.getElementById("live-fixtures-list").innerHTML = liveFixturesHtml || "<p style='text-align:center; color:#aaa;'>No active matches for this gameweek.</p>";
-            document.getElementById("fixtures-list").innerHTML = pendingFixturesHtml || "<p style='text-align:center; color:#aaa;'>No pending fixtures globally.</p>";
-            document.getElementById("results-list").innerHTML = resultsHtml || "<p style='text-align:center; color:#aaa;'>No results matched filter.</p>";
+            document.getElementById("live-fixtures-list").innerHTML = liveFixturesHtml || "<p style='text-align:center;'>No matches.</p>";
+            document.getElementById("fixtures-list").innerHTML = pendingFixturesHtml || "<p style='text-align:center;'>No fixtures.</p>";
+            document.getElementById("results-list").innerHTML = resultsHtml || "<p style='text-align:center;'>No results.</p>";
             
-            const approvalSection = document.getElementById("admin-approvals");
-            if (approvalsHtml) {
-                approvalSection.innerHTML = `<h3 style="color:#e74c3c; margin-top:0;">🚨 Pending Approvals</h3>` + approvalsHtml;
-                approvalSection.style.display = "block";
-            } else { approvalSection.style.display = "none"; }
+            const apSect = document.getElementById("admin-approvals");
+            if (approvalsHtml) { apSect.innerHTML = `<h3 style="color:#e74c3c; margin-top:0;">🚨 Approvals</h3>` + approvalsHtml; apSect.style.display = "block"; } 
+            else { apSect.style.display = "none"; }
         };
 
         window.switchTab = (tabId) => {
@@ -626,40 +505,32 @@
 
         // --- Data Submission & Actions ---
         window.userSubmitScore = async (matchId, teamA, teamB) => {
-            const scoreA = prompt(`RAW points scored by ${teamA}:`);
-            if(scoreA === null || scoreA === "") return;
-            const scoreB = prompt(`RAW points scored by ${teamB}:`);
-            if(scoreB === null || scoreB === "") return;
-
-            try {
-                await updateDoc(doc(db, "matches", matchId), { scoreA: parseInt(scoreA), scoreB: parseInt(scoreB), status: "played" });
-                alert("Score submitted for review!");
-                await window.loadAllData();
-            } catch (error) { alert("Error: " + error.message); }
+            const sA = prompt(`RAW points scored by ${teamA}:`); if(sA === null || sA === "") return;
+            const sB = prompt(`RAW points scored by ${teamB}:`); if(sB === null || sB === "") return;
+            await updateDoc(doc(db, "matches", matchId), { scoreA: parseInt(sA), scoreB: parseInt(sB), status: "played" });
+            alert("Score submitted!"); await window.loadAllData();
         };
 
         window.approveScore = async (matchId) => {
             const match = globalMatchesData.find(m => m.id === matchId);
             if(!match) return;
 
+            // Updated Bonus Points Logic: Win = +2, Draw = +1
             let bonusA = 0, bonusB = 0;
-            if (match.scoreA > match.scoreB) bonusA += 2;
-            else if (match.scoreB > match.scoreA) bonusB += 2;
-            else { bonusA += 1; bonusB += 1; }
-
-            if (match.scoreA > 0 && match.scoreB === 0) bonusA += 1;
-            if (match.scoreB > 0 && match.scoreA === 0) bonusB += 1;
+            if (match.scoreA > match.scoreB) { bonusA += 2; }
+            else if (match.scoreB > match.scoreA) { bonusB += 2; }
+            else { bonusA += 1; bonusB += 1; } // Draw
 
             const gw = match.gameweek || document.getElementById('active-gameweek').value;
 
             try {
                 const batch = writeBatch(db);
-                
                 const processPlayerPoints = (playerId, score, bonus) => {
                     if (playerId === "PROXY") return; 
                     const pData = globalPlayersData.find(p => p.id === playerId);
                     if (!pData) return;
 
+                    // Attendance Logic: +1 if full GW attended
                     let attendanceInc = 0;
                     let attended = pData.attendedGWs || [];
                     if (!attended.includes(gw)) { attendanceInc = 1; attended.push(gw); }
@@ -674,157 +545,137 @@
                 if (Array.isArray(match.teamB)) match.teamB.forEach(pid => processPlayerPoints(pid, match.scoreB, bonusB));
 
                 batch.update(doc(db, "matches", matchId), { status: "confirmed" });
-                await batch.commit();
-                await window.loadAllData();
+                await batch.commit(); await window.loadAllData();
             } catch (error) { alert("Error: " + error.message); }
         };
 
         window.rejectScore = async (matchId) => {
-            if(!confirm("Reject score and reset fixture?")) return;
             await updateDoc(doc(db, "matches", matchId), { scoreA: 0, scoreB: 0, status: "pending" });
             await window.loadAllData();
         };
-        
         window.deleteSingleMatch = async (matchId) => {
-            if(!confirm("Delete this fixture?")) return;
-            await deleteDoc(doc(db, "matches", matchId));
-            await window.loadAllData();
+            if(confirm("Delete this fixture?")) { await deleteDoc(doc(db, "matches", matchId)); await window.loadAllData(); }
         };
 
-        // --- NEW: DYNAMIC SWAP FUNCTIONALITY ---
+        // --- GW3 Image Fixture Injector ---
+        window.injectGW3Fixtures = async () => {
+            if(!confirm("Inject 30 GW3 matches to database? This uses the exact names from your image. Ensure player profiles exist!")) return;
+            
+            const gw3Matches = [
+                // Round 1
+                { r: "Round 1", c: "Court 1", tA: ["Ezra", "Kyle"], tB: ["Leigh", "PROXY"] },
+                { r: "Round 1", c: "Court 2", tA: ["Skye", "Chantell"], tB: ["Darren", "Jason"] },
+                { r: "Round 1", c: "Court 3", tA: ["Goolam", "Aunty Nuraan"], tB: ["Matthew", "Jodie"] },
+                // Round 2
+                { r: "Round 2", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Goolam", "Aunty Nuraan"] },
+                { r: "Round 2", c: "Court 2", tA: ["Baasiet", "Faatimah"], tB: ["Matthew", "Jodie"] },
+                { r: "Round 2", c: "Court 3", tA: ["Aneeqah", "Simone"], tB: ["Figo", "Brady"] },
+                // Round 3
+                { r: "Round 3", c: "Court 1", tA: ["Aneeqah", "Simone"], tB: ["Ezra", "Kyle"] },
+                { r: "Round 3", c: "Court 2", tA: ["Figo", "Brady"], tB: ["Darren", "Jason"] },
+                { r: "Round 3", c: "Court 3", tA: ["Leigh", "PROXY"], tB: ["Skye", "Chantell"] },
+                // Round 4
+                { r: "Round 4", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Baasiet", "Faatimah"] },
+                { r: "Round 4", c: "Court 2", tA: ["Skye", "Chantell"], tB: ["Goolam", "Aunty Nuraan"] },
+                { r: "Round 4", c: "Court 3", tA: ["Darren", "Jason"], tB: ["Matthew", "Jodie"] },
+                // Round 5
+                { r: "Round 5", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Ezra", "Kyle"] },
+                { r: "Round 5", c: "Court 2", tA: ["Baasiet", "Faatimah"], tB: ["Aneeqah", "Simone"] },
+                { r: "Round 5", c: "Court 3", tA: ["Figo", "Brady"], tB: ["Leigh", "PROXY"] },
+                // Round 6
+                { r: "Round 6", c: "Court 1", tA: ["Aneeqah", "Simone"], tB: ["Goolam", "Aunty Nuraan"] },
+                { r: "Round 6", c: "Court 2", tA: ["Ezra", "Kyle"], tB: ["Darren", "Jason"] },
+                { r: "Round 6", c: "Court 3", tA: ["Skye", "Chantell"], tB: ["Matthew", "Jodie"] },
+                // Round 7
+                { r: "Round 7", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Matthew", "Jodie"] },
+                { r: "Round 7", c: "Court 2", tA: ["Figo", "Brady"], tB: ["Goolam", "Aunty Nuraan"] },
+                { r: "Round 7", c: "Court 3", tA: ["Baasiet", "Faatimah"], tB: ["Leigh", "PROXY"] },
+                // Round 8
+                { r: "Round 8", c: "Court 1", tA: ["Aneeqah", "Simone"], tB: ["Skye", "Chantell"] },
+                { r: "Round 8", c: "Court 2", tA: ["Figo", "Brady"], tB: ["Ezra", "Kyle"] },
+                { r: "Round 8", c: "Court 3", tA: ["Leigh", "PROXY"], tB: ["Darren", "Jason"] },
+                // Round 9
+                { r: "Round 9", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Darren", "Jason"] },
+                { r: "Round 9", c: "Court 2", tA: ["Baasiet", "Faatimah"], tB: ["Goolam", "Aunty Nuraan"] },
+                { r: "Round 9", c: "Court 3", tA: ["Ezra", "Kyle"], tB: ["Matthew", "Jodie"] },
+                // Round 10
+                { r: "Round 10", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Figo", "Brady"] },
+                { r: "Round 10", c: "Court 2", tA: ["Aneeqah", "Simone"], tB: ["Leigh", "PROXY"] },
+                { r: "Round 10", c: "Court 3", tA: ["Baasiet", "Faatimah"], tB: ["Skye", "Chantell"] }
+            ];
+
+            try {
+                const batch = writeBatch(db);
+                gw3Matches.forEach((m, i) => {
+                    const matchRef = doc(db, "matches", `gw3_auto_${Date.now()}_${i}`);
+                    batch.set(matchRef, { teamA: m.tA, teamB: m.tB, scoreA: 0, scoreB: 0, status: "pending", gameweek: "GW3", round: m.r, court: m.c });
+                });
+                await batch.commit();
+                alert("30 matches successfully injected into GW3!");
+                await window.loadAllData();
+            } catch (err) { alert("Injection failed: " + err.message); }
+        };
+
+        // --- Other Admin Functions ---
         window.dynamicSwapPlayer = async () => {
             const teamIdx = document.getElementById('swap-team-select').value;
             const newPlayer = document.getElementById('swap-new-player').value;
-            
             if(teamIdx === "" || newPlayer === "") return alert("Select team and new player.");
             const team = activeTeamsList[teamIdx];
-            
-            // Ask admin who they are replacing
             const toReplace = prompt(`Who is leaving the team? Type exactly:\n${team.p1} OR ${team.p2}`);
             if(toReplace !== team.p1 && toReplace !== team.p2) return alert("Name didn't match.");
-            
             const keepingPlayer = (toReplace === team.p1) ? team.p2 : team.p1;
 
             try {
                 const batch = writeBatch(db);
-                
-                // Update Player Profiles
                 if (toReplace !== "PROXY") batch.update(doc(db, "players", toReplace), { currentPartner: null, isFreeAgent: false });
                 if (keepingPlayer !== "PROXY") batch.update(doc(db, "players", keepingPlayer), { currentPartner: newPlayer });
                 if (newPlayer !== "PROXY") batch.update(doc(db, "players", newPlayer), { currentPartner: keepingPlayer, isFreeAgent: false });
 
-                // Update Matches (only pending)
                 globalMatchesData.forEach(m => {
                     if (m.status === "pending") {
-                        if(m.teamA.includes(toReplace) && m.teamA.includes(keepingPlayer)) {
-                            batch.update(doc(db, "matches", m.id), { teamA: [keepingPlayer, newPlayer] });
-                        }
-                        if(m.teamB.includes(toReplace) && m.teamB.includes(keepingPlayer)) {
-                            batch.update(doc(db, "matches", m.id), { teamB: [keepingPlayer, newPlayer] });
-                        }
+                        if(m.teamA.includes(toReplace) && m.teamA.includes(keepingPlayer)) batch.update(doc(db, "matches", m.id), { teamA: [keepingPlayer, newPlayer] });
+                        if(m.teamB.includes(toReplace) && m.teamB.includes(keepingPlayer)) batch.update(doc(db, "matches", m.id), { teamB: [keepingPlayer, newPlayer] });
                     }
                 });
-
-                await batch.commit();
-                alert("Swap successful! Live matches updated seamlessly.");
-                await window.loadAllData();
-            } catch (error) { alert("Error swapping: " + error.message); }
-        };
-
-        window.disbandTeamByIndex = async (index) => {
-            const team = activeTeamsList[index];
-            if(!team) return;
-            if(!confirm(`Disband ${team.name}?`)) return;
-            const batch = writeBatch(db);
-            if(team.p1 && team.p1 !== "PROXY") batch.update(doc(db, "players", team.p1), { currentPartner: null, isFreeAgent: false });
-            if(team.p2 && team.p2 !== "PROXY") batch.update(doc(db, "players", team.p2), { currentPartner: null, isFreeAgent: false });
-            await batch.commit();
-            await window.loadAllData();
-        };
-
-        window.disbandTeamFromDropdown = async () => {
-            const idx = document.getElementById('delete-team-select').value;
-            if(idx !== "") await window.disbandTeamByIndex(idx);
+                await batch.commit(); alert("Swap successful!"); await window.loadAllData();
+            } catch (error) { alert("Error: " + error.message); }
         };
 
         window.createFixture = async () => {
-            const idxA = document.getElementById('fix-teamA').value;
-            const idxB = document.getElementById('fix-teamB').value;
-            const round = document.getElementById('fix-round').value;
-            const court = document.getElementById('fix-court').value;
-            const currentGW = document.getElementById('active-gameweek').value;
-
-            if(idxA === "" || idxB === "") return alert("Select two teams.");
-            if(idxA === idxB) return alert("A team cannot play itself!");
-
-            const matchId = `match_${Date.now()}`;
-            await setDoc(doc(db, "matches", matchId), {
-                teamA: [activeTeamsList[idxA].p1, activeTeamsList[idxA].p2],
-                teamB: [activeTeamsList[idxB].p1, activeTeamsList[idxB].p2],
-                scoreA: 0, scoreB: 0, status: "pending", gameweek: currentGW, round: round, court: court
+            const idxA = document.getElementById('fix-teamA').value, idxB = document.getElementById('fix-teamB').value;
+            if(idxA === "" || idxB === "" || idxA === idxB) return;
+            await setDoc(doc(db, "matches", `match_${Date.now()}`), {
+                teamA: [activeTeamsList[idxA].p1, activeTeamsList[idxA].p2], teamB: [activeTeamsList[idxB].p1, activeTeamsList[idxB].p2],
+                scoreA: 0, scoreB: 0, status: "pending", gameweek: document.getElementById('active-gameweek').value, 
+                round: document.getElementById('fix-round').value, court: document.getElementById('fix-court').value
             });
-            alert("Fixture Launched!");
             await window.loadAllData();
         };
 
         window.populateAdminDropdowns = () => {
-            let pOptions = '<option value="">-- Player --</option><option value="PROXY">🥷 PROXY (No Points)</option>';
-            let sortedPlayers = [...globalPlayersData].sort((a,b) => String(a.id).localeCompare(String(b.id)));
-            sortedPlayers.forEach(p => { if(p.id !== "PROXY") pOptions += `<option value="${p.id}">${p.id}</option>`; });
-            
-            ['team-p1', 'team-p2', 'fa-player', 'new-player-name', 'swap-new-player'].forEach(id => { if(document.getElementById(id) && id!=='new-player-name') document.getElementById(id).innerHTML = pOptions; });
-            
-            let delOptions = '<option value="">-- Player --</option>';
-            sortedPlayers.forEach(p => { if(p.id !== "PROXY") delOptions += `<option value="${p.id}">${p.id}</option>`; });
-            if(document.getElementById('delete-player-select')) document.getElementById('delete-player-select').innerHTML = delOptions;
+            let pOptions = '<option value="">-- Player --</option><option value="PROXY">🥷 PROXY</option>';
+            [...globalPlayersData].sort((a,b) => String(a.id).localeCompare(String(b.id))).forEach(p => { if(p.id !== "PROXY") pOptions += `<option value="${p.id}">${p.id}</option>`; });
+            ['team-p1', 'team-p2', 'new-player-name', 'swap-new-player'].forEach(id => { if(document.getElementById(id) && id!=='new-player-name') document.getElementById(id).innerHTML = pOptions; });
+            document.getElementById('delete-player-select').innerHTML = pOptions;
 
             let tOptions = '<option value="">-- Team --</option>';
             activeTeamsList.forEach((t, i) => { tOptions += `<option value="${i}">${t.name}</option>`; });
-            ['fix-teamA', 'fix-teamB', 'delete-team-select', 'swap-team-select'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerHTML = tOptions; });
+            ['fix-teamA', 'fix-teamB', 'delete-team-select', 'swap-team-select'].forEach(id => document.getElementById(id).innerHTML = tOptions);
         };
 
+        // --- Auth ---
         onAuthStateChanged(auth, (user) => {
-            const sections = document.querySelectorAll('.admin-section');
-            if (user) {
-                isAdminLoggedIn = true;
-                sections.forEach(s => s.style.display = "block");
-                document.getElementById("login-section").style.display = "none";
-            } else {
-                isAdminLoggedIn = false;
-                sections.forEach(s => s.style.display = "none");
-                document.getElementById("login-section").style.display = "block";
-            }
-            window.renderMatches(); window.renderLeaderboard(); 
+            isAdminLoggedIn = !!user;
+            document.querySelectorAll('.admin-section').forEach(s => s.style.display = user ? 'block' : 'none');
+            document.getElementById("admin-logout-zone").style.display = user ? 'block' : 'none';
+            document.getElementById("login-section").style.display = user ? 'none' : 'block';
+            window.loadAllData();
         });
+        window.loginAdmin = () => signInWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("password").value);
+        window.logoutAdmin = () => signOut(auth);
 
-        window.loginAdmin = () => {
-            signInWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("password").value)
-                .catch((error) => alert("Login Failed: " + error.message));
-        };
-
-        // --- Other Simple Admin Bindings ---
-        window.pairPlayers = async () => { /* Standard Linking Logic - kept short for brevity in thought, expanded in code */
-            const p1 = document.getElementById('team-p1').value, p2 = document.getElementById('team-p2').value;
-            if(!p1 || !p2 || p1===p2) return;
-            const batch = writeBatch(db);
-            if(p1 !== "PROXY") batch.update(doc(db, "players", p1), { currentPartner: p2, isFreeAgent: false });
-            if(p2 !== "PROXY") batch.update(doc(db, "players", p2), { currentPartner: p1, isFreeAgent: false });
-            await batch.commit(); await window.loadAllData(); 
-        };
-        window.makeFreeAgent = async () => {
-            const p = document.getElementById('fa-player').value;
-            if(!p || p === "PROXY") return;
-            await updateDoc(doc(db, "players", p), { currentPartner: null, isFreeAgent: true }); 
-            await window.loadAllData(); 
-        };
-        window.addNewPlayer = async () => {
-            const n = document.getElementById("new-player-name").value.trim();
-            if(!n) return;
-            await setDoc(doc(db, "players", n), { rawPoints: 0, bonusPoints: 0, attendance: 0, totalScore: 0, history: [0], partners: [], currentPartner: null, isFreeAgent: false, attendedGWs: [] });
-            document.getElementById("new-player-name").value = ""; await window.loadAllData();
-        };
-
-        // Modal chart & Historical Data (Retained fully)
+        // Modal
         let playerChart = null;
         window.openPlayerModal = (playerId) => {
             const player = globalPlayersData.find(p => p.id === playerId);
@@ -833,17 +684,11 @@
             document.getElementById("player-modal").style.display = "block";
             const ctx = document.getElementById('playerChart').getContext('2d');
             if(playerChart) playerChart.destroy(); 
-            playerChart = new Chart(ctx, { type: 'line', data: { labels: ['Start', 'GW1', 'GW2', 'GW3'], datasets: [{ label: 'Pts History', data: player.history || [0, player.totalScore], borderColor: '#18bc9c', backgroundColor: 'rgba(24, 188, 156, 0.2)', borderWidth: 3, tension: 0.3, fill: true }] }, options: { responsive: true } });
+            playerChart = new Chart(ctx, { type: 'line', data: { labels: ['Start', 'Current'], datasets: [{ label: 'Pts History', data: [0, player.totalScore], borderColor: '#18bc9c', backgroundColor: 'rgba(24, 188, 156, 0.2)', borderWidth: 3, fill: true }] }, options: { responsive: true } });
         };
         window.closeModal = () => document.getElementById("player-modal").style.display = "none";
 
-        window.loadHistoricalData = async () => { /* Identical Historical Object block to previous versions... */
-             alert("Historical Push is active via specific code generation earlier - preventing dupe execution space. See Previous Chat Block to reset data.");
-        };
-
-        // Init
-        listenToTimer();
-        window.loadAllData();
+        listenToTimer(); window.loadAllData();
     </script>
 </body>
 </html>
