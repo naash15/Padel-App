@@ -161,8 +161,9 @@
             align-items: center;
             justify-content: space-between;
             border: 1px solid rgba(255, 255, 255, 0.02);
+            transition: transform 0.2s;
         }
-        .list-item:last-child { margin-bottom: 0; }
+        .list-item:hover { transform: translateY(-2px); }
 
         /* Match Cards */
         .match-card {
@@ -203,10 +204,8 @@
         .vs-divider { color: var(--text-muted); font-size: 11px; font-weight: 800; padding: 0 10px; }
         .score-display { font-size: 20px; font-weight: 900; color: var(--primary); margin-top: 5px; }
 
-        /* Forms & Inputs UI Overhaul */
-        .form-group {
-            margin-bottom: 12px;
-        }
+        /* Forms & Inputs */
+        .form-group { margin-bottom: 12px; }
         .form-group label {
             display: block;
             font-size: 12px;
@@ -224,12 +223,8 @@
             font-size: 14px;
             box-sizing: border-box;
             font-family: inherit;
-            transition: border-color 0.2s;
         }
-        select:focus, input:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
+        select:focus, input:focus { outline: none; border-color: var(--primary); }
 
         /* Modernized Buttons */
         button {
@@ -243,10 +238,6 @@
             font-size: 14px;
             width: 100%;
             transition: filter 0.2s;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
         }
         button:hover { filter: brightness(1.1); }
         .btn-action { background: var(--info); color: white; }
@@ -254,7 +245,7 @@
         .btn-warning { background: var(--warning); color: #000; }
         .btn-secondary { background: #334155; color: var(--text-main); }
 
-        /* Sleek Admin Collapsible Section */
+        /* Collapsible Section */
         details {
             background: rgba(255, 255, 255, 0.02);
             border-radius: 10px;
@@ -277,18 +268,29 @@
             border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        /* Tags */
+        /* Tags & Red Admin 'X' */
         .tag {
-            display: inline-block;
-            padding: 4px 10px;
-            font-size: 11px;
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            font-size: 12px;
             font-weight: 600;
             border-radius: 20px;
-            margin-right: 4px;
-            margin-bottom: 4px;
+            margin-right: 6px;
+            margin-bottom: 6px;
         }
         .tag-team { background: rgba(16, 185, 129, 0.1); color: var(--primary); border: 1px solid rgba(16, 185, 129, 0.2); }
         .tag-fa { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); }
+        
+        .admin-x {
+            color: var(--danger);
+            margin-left: 8px;
+            cursor: pointer;
+            font-weight: 900;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        .admin-x:hover { color: #ff6b6b; }
 
         /* Modal Overlay */
         .modal {
@@ -331,7 +333,6 @@
         <p>Live Scoring & Tournament Tracker</p>
     </div>
 
-    <!-- ADMIN LOGOUT STRIP -->
     <div id="admin-logout-zone">
         <button class="btn-danger" onclick="window.logoutAdmin()">🔒 Lock Admin Dashboard</button>
     </div>
@@ -388,14 +389,6 @@
                             <input type="text" id="new-player-name" placeholder="Name">
                         </div>
                         <button onclick="window.addNewPlayer()">Add to System</button>
-                        
-                        <hr style="border:0; border-top:1px solid rgba(255,255,255,0.05); margin:15px 0;">
-                        
-                        <div class="form-group">
-                            <label>Select Player to Remove</label>
-                            <select id="delete-player-select"></select>
-                        </div>
-                        <button class="btn-danger" onclick="window.deletePlayer()">Delete Permanently</button>
                     </div>
                 </details>
 
@@ -409,7 +402,7 @@
                 </details>
 
                 <details>
-                    <summary>🔄 Dynamic Mid-Tournament Swap (Hishaam / Proxy)</summary>
+                    <summary>🔄 Dynamic Mid-Tournament Swap</summary>
                     <div class="details-content">
                         <div class="form-group"><label>Select Target Team</label><select id="swap-team-select"></select></div>
                         <div class="form-group"><label>Select Incoming Replacement</label><select id="swap-new-player"></select></div>
@@ -421,12 +414,12 @@
 
         <div class="card">
             <h2>📋 Active Configurations</h2>
-            <div style="margin-bottom: 12px;">
-                <span style="color: var(--text-muted); font-size:12px; font-weight:700; display:block; margin-bottom:6px; text-transform:uppercase;">Formed Teams:</span>
+            <div style="margin-bottom: 16px;">
+                <span style="color: var(--text-muted); font-size:12px; font-weight:700; display:block; margin-bottom:8px; text-transform:uppercase;">Formed Teams:</span>
                 <div id="live-teams"></div>
             </div>
             <div>
-                <span style="color: var(--text-muted); font-size:12px; font-weight:700; display:block; margin-bottom:6px; text-transform:uppercase;">Available Free Agents:</span>
+                <span style="color: var(--text-muted); font-size:12px; font-weight:700; display:block; margin-bottom:8px; text-transform:uppercase;">Available Free Agents:</span>
                 <div id="live-free-agents"></div>
             </div>
         </div>
@@ -453,14 +446,6 @@
                             <div class="form-group" style="flex:1;"><label>Court</label><select id="fix-court"><script>for(let i=1;i<=3;i++) document.write(`<option value="Court ${i}">Court ${i}</option>`);</script></select></div>
                         </div>
                         <button class="btn-action" onclick="window.createFixture()">Launch Fixture</button>
-                    </div>
-                </details>
-
-                <details>
-                    <summary>⚡ Automated Sheet Match Ingestion</summary>
-                    <div class="details-content">
-                        <p style="font-size:12px; color:var(--text-muted); margin-top:0;">Loads all matches across 10 rounds mapped precisely to the 3 default courts instantly.</p>
-                        <button class="btn-action" style="background:#10b981; color:#000;" onclick="window.injectGW3Fixtures()">Ingest GW3 Schedule</button>
                     </div>
                 </details>
             </div>
@@ -529,7 +514,8 @@
     <div id="player-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn" onclick="window.closeModal()">&times;</span>
-            <h2 id="modal-name" style="margin-bottom:16px;">Historical Tracking</h2>
+            <h2 id="modal-name" style="margin-bottom:6px;">Historical Tracking</h2>
+            <div id="modal-partners" style="font-size: 12px; color: var(--info); font-weight: 600; margin-bottom: 16px;"></div>
             <div style="width:100%; height:260px; position:relative;">
                 <canvas id="playerChart"></canvas>
             </div>
@@ -544,10 +530,10 @@
         <button onclick="window.loginAdmin()">Establish Secure Link</button>
     </div>
 
-    <!-- INGEST ARCHITECTURE SCRIPT -->
+    <!-- FIREBASE ARCHITECTURE -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, writeBatch, increment, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, writeBatch, increment, deleteDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
         const firebaseConfig = {
@@ -569,6 +555,7 @@
         let activeTeamsList = []; 
         let isAdminLoggedIn = false; 
         
+        // --- Wake Lock & Buzzer ---
         let wakeLock = null;
         let lastBuzzerPhase = "";
 
@@ -595,6 +582,7 @@
             } catch(e){}
         };
 
+        // --- Timer Logic ---
         let localTimerInterval;
         const listenToTimer = () => {
             onSnapshot(doc(db, "config", "timer"), (snapshot) => {
@@ -655,13 +643,19 @@
 
         window.stopGlobalTimer = async () => { await setDoc(doc(db, "config", "timer"), { running: false }); };
 
+        // --- Core Data Load & Hishaam Inject ---
         window.loadAllData = async () => {
             try {
+                // Auto-Initialize Hishaam if he doesn't exist
+                const hRef = doc(db, "players", "Hishaam");
+                const hSnap = await getDoc(hRef);
+                if(!hSnap.exists()) {
+                    await setDoc(hRef, { rawPoints: 68, bonusPoints: 2, attendance: 1, totalScore: 71, isFreeAgent: true, currentPartner: null, attendedGWs: [] });
+                }
+
                 const pSnapshot = await getDocs(collection(db, "players"));
                 globalPlayersData = [];
-                pSnapshot.forEach((doc) => {
-                    globalPlayersData.push({ id: doc.id, ...doc.data() });
-                });
+                pSnapshot.forEach((doc) => { globalPlayersData.push({ id: doc.id, ...doc.data() }); });
 
                 const mSnapshot = await getDocs(collection(db, "matches"));
                 globalMatchesData = []; mSnapshot.forEach((doc) => globalMatchesData.push({ id: doc.id, ...doc.data() }));
@@ -671,6 +665,7 @@
             } catch (error) { console.error("Sync Failure:", error); }
         };
 
+        // --- Live Tally ---
         let liveNightChartInstance = null;
         window.toggleLiveChart = () => {
             const container = document.getElementById("live-chart-container");
@@ -712,6 +707,7 @@
             }
         };
 
+        // --- Dynamic Render & Admin Quick Remove ---
         window.renderLeaderboard = () => {
             let html = ""; let freeAgents = []; let processedPairs = new Set(); activeTeamsList = []; 
             globalPlayersData.sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0)); 
@@ -736,9 +732,13 @@
             });
             
             document.getElementById("live-teams").innerHTML = activeTeamsList.length > 0 
-                ? activeTeamsList.map(t => `<span class="tag tag-team">${t.name}</span>`).join('') : "<p style='color:var(--text-muted); font-size:13px; margin:0;'>None formed.</p>";
+                ? activeTeamsList.map(t => `<span class="tag tag-team">${t.name} ${isAdminLoggedIn ? `<span class="admin-x" onclick="window.adminDisbandTeam('${t.p1}', '${t.p2}')">✖</span>` : ""}</span>`).join('') 
+                : "<p style='color:var(--text-muted); font-size:13px; margin:0;'>None formed.</p>";
+            
             document.getElementById("live-free-agents").innerHTML = freeAgents.length > 0 
-                ? freeAgents.map(fa => `<span class="tag tag-fa">${fa}</span>`).join('') : "<p style='color:var(--text-muted); font-size:13px; margin:0;'>None active.</p>";
+                ? freeAgents.map(fa => `<span class="tag tag-fa">${fa} ${isAdminLoggedIn ? `<span class="admin-x" onclick="window.adminDeletePlayer('${fa}')">✖</span>` : ""}</span>`).join('') 
+                : "<p style='color:var(--text-muted); font-size:13px; margin:0;'>None active.</p>";
+            
             document.getElementById("leaderboard-list").innerHTML = html;
         };
 
@@ -784,6 +784,7 @@
             document.getElementById(`btn-${tabId}`).classList.add("active-tab");
         };
 
+        // --- Game Controls ---
         window.userSubmitScore = async (matchId, teamA, teamB) => {
             const sA = prompt(`Enter score for ${teamA}:`); if(sA === null || sA === "") return;
             const sB = prompt(`Enter score for ${teamB}:`); if(sB === null || sB === "") return;
@@ -836,6 +837,7 @@
             if(confirm("Purge selected target completely?")) { await deleteDoc(doc(db, "matches", matchId)); await window.loadAllData(); }
         };
 
+        // --- Admin Controls ---
         window.addNewPlayer = async () => {
             const name = document.getElementById("new-player-name").value.trim();
             if(!name) return;
@@ -844,11 +846,21 @@
             await window.loadAllData();
         };
 
-        window.deletePlayer = async () => {
-            const name = document.getElementById("delete-player-select").value;
-            if(!name || !confirm(`Permanently wipe ${name}?`)) return;
-            await deleteDoc(doc(db, "players", name));
-            await window.loadAllData();
+        window.adminDisbandTeam = async (p1, p2) => {
+            if(!confirm(`Disband the team: ${p1} & ${p2}?`)) return;
+            try {
+                const batch = writeBatch(db);
+                batch.update(doc(db, "players", p1), { currentPartner: null, isFreeAgent: true });
+                batch.update(doc(db, "players", p2), { currentPartner: null, isFreeAgent: true });
+                await batch.commit(); await window.loadAllData();
+            } catch(e) { alert("Error disbanding: " + e.message); }
+        };
+
+        window.adminDeletePlayer = async (playerId) => {
+            if(!confirm(`Permanently delete player ${playerId}?`)) return;
+            try {
+                await deleteDoc(doc(db, "players", playerId)); await window.loadAllData();
+            } catch(e) { alert("Error deleting: " + e.message); }
         };
 
         window.pairPlayers = async () => {
@@ -873,11 +885,7 @@
                 }
             });
 
-            await setDoc(doc(db, "champions_archive", `${activeGW}_tally`), {
-                gameweek: activeGW,
-                timestamp: Date.now(),
-                standings: currentTallies
-            });
+            await setDoc(doc(db, "champions_archive", `${activeGW}_tally`), { gameweek: activeGW, timestamp: Date.now(), standings: currentTallies });
             alert("Archive capture established successfully.");
         };
 
@@ -895,7 +903,7 @@
                 const batch = writeBatch(db);
                 if (toReplace !== "PROXY") batch.update(doc(db, "players", toReplace), { currentPartner: null, isFreeAgent: true });
                 if (keepingPlayer !== "PROXY") batch.update(doc(db, "players", keepingPlayer), { currentPartner: newPlayer });
-                if (newPlayer !== "PROXY" && newPlayer !== "Hishaam") batch.update(doc(db, "players", newPlayer), { currentPartner: keepingPlayer, isFreeAgent: false });
+                if (newPlayer !== "PROXY") batch.update(doc(db, "players", newPlayer), { currentPartner: keepingPlayer, isFreeAgent: false });
 
                 globalMatchesData.forEach(m => {
                     if (m.status === "pending") {
@@ -918,57 +926,10 @@
             await window.loadAllData();
         };
 
-        window.injectGW3Fixtures = async () => {
-            if(!confirm("Populate 30 scheduled matches mapped exactly to 3 courts?")) return;
-            
-            const schedule = [
-                { r: "Round 1", c: "Court 1", tA: ["Ezra", "Kyle"], tB: ["Leigh", "PROXY"] },
-                { r: "Round 1", c: "Court 2", tA: ["Skye", "Chantell"], tB: ["Darren", "Jason"] },
-                { r: "Round 1", c: "Court 3", tA: ["Goolam", "Aunty Nuraan"], tB: ["Matthew", "Jodie"] },
-                { r: "Round 2", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Goolam", "Aunty Nuraan"] },
-                { r: "Round 2", c: "Court 2", tA: ["Baasiet", "Faatimah"], tB: ["Matthew", "Jodie"] },
-                { r: "Round 2", c: "Court 3", tA: ["Aneeqah", "Simone"], tB: ["Figo", "Brady"] },
-                { r: "Round 3", c: "Court 1", tA: ["Aneeqah", "Simone"], tB: ["Ezra", "Kyle"] },
-                { r: "Round 3", c: "Court 2", tA: ["Figo", "Brady"], tB: ["Darren", "Jason"] },
-                { r: "Round 3", c: "Court 3", tA: ["Leigh", "PROXY"], tB: ["Skye", "Chantell"] },
-                { r: "Round 4", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Baasiet", "Faatimah"] },
-                { r: "Round 4", c: "Court 2", tA: ["Skye", "Chantell"], tB: ["Goolam", "Aunty Nuraan"] },
-                { r: "Round 4", c: "Court 3", tA: ["Darren", "Jason"], tB: ["Matthew", "Jodie"] },
-                { r: "Round 5", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Ezra", "Kyle"] },
-                { r: "Round 5", c: "Court 2", tA: ["Baasiet", "Faatimah"], tB: ["Aneeqah", "Simone"] },
-                { r: "Round 5", c: "Court 3", tA: ["Figo", "Brady"], tB: ["Leigh", "PROXY"] },
-                { r: "Round 6", c: "Court 1", tA: ["Aneeqah", "Simone"], tB: ["Goolam", "Aunty Nuraan"] },
-                { r: "Round 6", c: "Court 2", tA: ["Ezra", "Kyle"], tB: ["Darren", "Jason"] },
-                { r: "Round 6", c: "Court 3", tA: ["Skye", "Chantell"], tB: ["Matthew", "Jodie"] },
-                { r: "Round 7", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Matthew", "Jodie"] },
-                { r: "Round 7", c: "Court 2", tA: ["Figo", "Brady"], tB: ["Goolam", "Aunty Nuraan"] },
-                { r: "Round 7", c: "Court 3", tA: ["Baasiet", "Faatimah"], tB: ["Leigh", "PROXY"] },
-                { r: "Round 8", c: "Court 1", tA: ["Aneeqah", "Simone"], tB: ["Skye", "Chantell"] },
-                { r: "Round 8", c: "Court 2", tA: ["Figo", "Brady"], tB: ["Ezra", "Kyle"] },
-                { r: "Round 8", c: "Court 3", tA: ["Leigh", "PROXY"], tB: ["Darren", "Jason"] },
-                { r: "Round 9", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Darren", "Jason"] },
-                { r: "Round 9", c: "Court 2", tA: ["Baasiet", "Faatimah"], tB: ["Goolam", "Aunty Nuraan"] },
-                { r: "Round 9", c: "Court 3", tA: ["Ezra", "Kyle"], tB: ["Matthew", "Jodie"] },
-                { r: "Round 10", c: "Court 1", tA: ["Luke", "Naashid"], tB: ["Figo", "Brady"] },
-                { r: "Round 10", c: "Court 2", tA: ["Aneeqah", "Simone"], tB: ["Leigh", "PROXY"] },
-                { r: "Round 10", c: "Court 3", tA: ["Baasiet", "Faatimah"], tB: ["Skye", "Chantell"] }
-            ];
-
-            try {
-                const batch = writeBatch(db);
-                schedule.forEach((m, i) => {
-                    const matchRef = doc(db, "matches", `gw3_map_${i}`);
-                    batch.set(matchRef, { teamA: m.tA, teamB: m.tB, scoreA: 0, scoreB: 0, status: "pending", gameweek: "GW3", round: m.r, court: m.c });
-                });
-                await batch.commit(); alert("30 configuration frames initialized successfully."); await window.loadAllData();
-            } catch(e) { alert("Sync error: " + e.message); }
-        };
-
         window.populateAdminDropdowns = () => {
             let pOptions = '<option value="">-- Choose Node --</option><option value="PROXY">🥷 PROXY</option>';
             [...globalPlayersData].sort((a,b) => String(a.id).localeCompare(String(b.id))).forEach(p => { if(p.id !== "PROXY") pOptions += `<option value="${p.id}">${p.id}</option>`; });
             ['team-p1', 'team-p2', 'swap-new-player'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerHTML = pOptions; });
-            document.getElementById('delete-player-select').innerHTML = pOptions;
 
             let tOptions = '<option value="">-- Choose Team Struct --</option>';
             activeTeamsList.forEach((t, i) => { tOptions += `<option value="${i}">${t.name}</option>`; });
@@ -986,6 +947,7 @@
         window.loginAdmin = () => signInWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("password").value);
         window.logoutAdmin = () => signOut(auth);
 
+        // --- Corrected Player Profile Modal Analytics ---
         let modalChartInstance = null;
         window.openPlayerModal = (playerId) => {
             const player = globalPlayersData.find(p => p.id === playerId);
@@ -995,28 +957,43 @@
             document.getElementById("player-modal").style.display = "flex";
 
             let gwDataPoints = { "GW1": 0, "GW2": 0, "GW3": 0, "GW4": 0 };
+            let totalMatchPointsFound = 0;
+            let pastPartnersList = new Set();
+
             globalMatchesData.forEach(m => {
-                if(m.status === "confirmed") {
-                    const isTeamA = m.teamA.includes(playerId);
-                    const isTeamB = m.teamB.includes(playerId);
-                    if(isTeamA || isTeamB) {
-                        const score = isTeamA ? m.scoreA : m.scoreB;
-                        const opScore = isTeamA ? m.scoreB : m.scoreA;
+                const inA = m.teamA.includes(playerId);
+                const inB = m.teamB.includes(playerId);
+                if(inA || inB) {
+                    // Collect Partners
+                    if(inA) m.teamA.forEach(p => { if(p !== playerId) pastPartnersList.add(p); });
+                    if(inB) m.teamB.forEach(p => { if(p !== playerId) pastPartnersList.add(p); });
+
+                    // Sum Confirmed Game Points
+                    if(m.status === "confirmed") {
+                        const score = inA ? m.scoreA : m.scoreB;
+                        const opScore = inA ? m.scoreB : m.scoreA;
                         let bonus = 0;
                         if(score > opScore) bonus = 2;
                         else if(score === opScore) bonus = 1;
                         
+                        const gained = score + bonus;
                         if(gwDataPoints[m.gameweek] !== undefined) {
-                            gwDataPoints[m.gameweek] += (score + bonus);
+                            gwDataPoints[m.gameweek] += gained;
+                            totalMatchPointsFound += gained;
                         }
                     }
                 }
             });
 
-            // Cumulative trend projection
+            // Set Partners History Text
+            document.getElementById("modal-partners").innerText = "Linked Partners: " + (pastPartnersList.size > 0 ? Array.from(pastPartnersList).join(", ") : "None Recorded");
+
+            // Reconstruct timeline allowing for pre-imported base points (e.g. Hishaam)
+            let basePoints = (player.totalScore || 0) - totalMatchPointsFound;
+            let runningSum = basePoints;
             let labelArr = ["Start", "GW1", "GW2", "GW3", "GW4"];
-            let runningSum = 0;
-            let dataArr = [0, 
+            let dataArr = [
+                runningSum, 
                 runningSum += gwDataPoints["GW1"], 
                 runningSum += gwDataPoints["GW2"], 
                 runningSum += gwDataPoints["GW3"], 
