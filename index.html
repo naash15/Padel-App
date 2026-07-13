@@ -658,15 +658,10 @@
 
         window.stopGlobalTimer = async () => { await setDoc(doc(db, "config", "timer"), { running: false }); };
 
-        // --- Core Data Load & Hishaam Inject ---
+        // --- Core Data Load ---
         window.loadAllData = async () => {
             try {
-                // Auto-Initialize Hishaam if he doesn't exist
-                const hRef = doc(db, "players", "Hishaam");
-                const hSnap = await getDoc(hRef);
-                if(!hSnap.exists()) {
-                    await setDoc(hRef, { rawPoints: 68, bonusPoints: 2, attendance: 1, totalScore: 71, isFreeAgent: true, currentPartner: null, attendedGWs: [] });
-                }
+                // The auto-initialize block that was resurrecting the incorrect spelling has been completely removed.
 
                 const pSnapshot = await getDocs(collection(db, "players"));
                 globalPlayersData = [];
@@ -987,14 +982,19 @@
             let gwDataPoints = { "GW1": 0, "GW2": 0, "GW3": 0, "GW4": 0 };
             let totalMatchPointsFound = 0;
             let pastPartnersList = new Set();
+            
+            // Capture the current partner straight from the roster even if a game hasn't been logged yet
+            if(player.currentPartner && player.currentPartner !== "PROXY") {
+                pastPartnersList.add(player.currentPartner);
+            }
 
             globalMatchesData.forEach(m => {
                 const inA = m.teamA.includes(playerId);
                 const inB = m.teamB.includes(playerId);
                 if(inA || inB) {
-                    // Collect Partners
-                    if(inA) m.teamA.forEach(p => { if(p !== playerId) pastPartnersList.add(p); });
-                    if(inB) m.teamB.forEach(p => { if(p !== playerId) pastPartnersList.add(p); });
+                    // Collect Partners from match history
+                    if(inA) m.teamA.forEach(p => { if(p !== playerId && p !== "PROXY") pastPartnersList.add(p); });
+                    if(inB) m.teamB.forEach(p => { if(p !== playerId && p !== "PROXY") pastPartnersList.add(p); });
 
                     // Sum Confirmed Game Points
                     if(m.status === "confirmed") {
@@ -1016,7 +1016,7 @@
             // Set Partners History Text
             document.getElementById("modal-partners").innerText = "Linked Partners: " + (pastPartnersList.size > 0 ? Array.from(pastPartnersList).join(", ") : "None Recorded");
 
-            // Reconstruct timeline allowing for pre-imported base points (e.g. Hishaam)
+            // Reconstruct timeline allowing for pre-imported base points
             let basePoints = (player.totalScore || 0) - totalMatchPointsFound;
             let runningSum = basePoints;
             let labelArr = ["Start", "GW1", "GW2", "GW3", "GW4"];
