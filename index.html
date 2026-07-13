@@ -982,12 +982,12 @@
             let gwDataPoints = { "GW1": 0, "GW2": 0, "GW3": 0, "GW4": 0 };
             let totalMatchPointsFound = 0;
             let pastPartnersList = new Set();
-                        // --- MANUAL PARTNER OVERRIDE ---
-            if (playerId === "Ishaam" || playerId === "Hishaam") pastPartnersList.add("Leigh");
+                                    // --- MANUAL PARTNER OVERRIDE ---
+            if (playerId === "Ishaam") pastPartnersList.add("Leigh");
             if (playerId === "Leigh") { 
                 pastPartnersList.add("Ishaam"); 
-                pastPartnersList.add("Hishaam"); 
             }
+            // -------------------------------
             // -------------------------------
             
             // Capture the current partner straight from the roster even if a game hasn't been logged yet
