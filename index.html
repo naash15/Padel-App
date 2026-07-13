@@ -658,11 +658,11 @@
 
         window.stopGlobalTimer = async () => { await setDoc(doc(db, "config", "timer"), { running: false }); };
 
-        // --- Core Data Load & Hishaam Inject ---
+        // --- Core Data Load & Ishaam Inject ---
         window.loadAllData = async () => {
             try {
-                // Auto-Initialize Hishaam if he doesn't exist
-                const hRef = doc(db, "players", "Hishaam");
+                // Auto-Initialize Ishaam if he doesn't exist
+                const hRef = doc(db, "players", "Ishaam");
                 const hSnap = await getDoc(hRef);
                 if(!hSnap.exists()) {
                     await setDoc(hRef, { rawPoints: 68, bonusPoints: 2, attendance: 1, totalScore: 71, isFreeAgent: true, currentPartner: null, attendedGWs: [] });
