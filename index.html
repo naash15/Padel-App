@@ -451,6 +451,18 @@
             <div class="card" style="border: 1px solid rgba(59, 130, 246, 0.2);">
                 <h2 style="color:var(--info);">📅 Match Scheduling Desk</h2>
                 
+                <!-- NEW SMART BULK IMPORT -->
+                <details>
+                    <summary>🚀 Bulk Paste Fixtures</summary>
+                    <div class="details-content">
+                        <div class="form-group">
+                            <label>Paste full schedule text here (It will auto-ignore resting and seed text)</label>
+                            <textarea id="bulk-fixtures-text" rows="8" style="width: 100%; padding: 12px; background: var(--bg-input); color: var(--text-main); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; font-size: 13px; font-family: inherit; resize: vertical;"></textarea>
+                        </div>
+                        <button class="btn-action" onclick="window.bulkImportFixtures()">Extract & Create Matches</button>
+                    </div>
+                </details>
+
                 <details>
                     <summary>🛠️ Manual Custom Match Builder</summary>
                     <div class="details-content">
@@ -661,8 +673,6 @@
         // --- Core Data Load ---
         window.loadAllData = async () => {
             try {
-                // The auto-initialize block that was resurrecting the incorrect spelling has been completely removed.
-
                 const pSnapshot = await getDocs(collection(db, "players"));
                 globalPlayersData = [];
                 pSnapshot.forEach((doc) => { globalPlayersData.push({ id: doc.id, ...doc.data() }); });
@@ -854,6 +864,81 @@
         };
 
         // --- Admin Controls ---
+        
+        // NEW BULK IMPORT FUNCTION
+        window.bulkImportFixtures = async () => {
+            const rawText = document.getElementById('bulk-fixtures-text').value;
+            if (!rawText.trim()) return alert("Please paste the schedule text first.");
+
+            const activeGW = document.getElementById('active-gameweek').value;
+            const lines = rawText.split('\n');
+            let currentRound = "Round 1"; 
+            let matchCount = 0;
+
+            try {
+                const batch = writeBatch(db);
+
+                for (let line of lines) {
+                    line = line.trim();
+                    if (!line) continue;
+
+                    // Extract Round Number from strings like "20:10 - 20:22 | Round 1"
+                    const roundMatch = line.match(/\|\s*(Round\s+\d+)/i) || line.match(/^(Round\s+\d+)/i);
+                    if (roundMatch) {
+                        currentRound = roundMatch[1];
+                        continue;
+                    }
+
+                    // Extract Court and Teams from strings like "Court 1: Figo & Aneeqah vs Luke & Darren (#2 vs #3 Heavyweight Clash)"
+                    if (line.toLowerCase().startsWith("court")) {
+                        const courtSplit = line.split(':');
+                        if (courtSplit.length < 2) continue;
+
+                        const courtStr = courtSplit[0].trim(); // Output: "Court 1"
+                        
+                        let teamsPart = courtSplit.slice(1).join(':').trim(); 
+                        teamsPart = teamsPart.split('(')[0].trim(); // Output: "Figo & Aneeqah vs Luke & Darren"
+
+                        const vsSplit = teamsPart.split(/\s+vs\s+/i);
+                        if (vsSplit.length === 2) {
+                            const tA = vsSplit[0].split('&').map(s => s.trim()); // Output: ["Figo", "Aneeqah"]
+                            const tB = vsSplit[1].split('&').map(s => s.trim()); // Output: ["Luke", "Darren"]
+
+                            const matchId = `match_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+                            const matchRef = doc(db, "matches", matchId);
+                            
+                            batch.set(matchRef, {
+                                teamA: tA,
+                                teamB: tB,
+                                scoreA: 0,
+                                scoreB: 0,
+                                status: "pending",
+                                gameweek: activeGW,
+                                round: currentRound,
+                                court: courtStr
+                            });
+                            matchCount++;
+                        }
+                    }
+                }
+
+                if (matchCount === 0) {
+                    alert("No valid fixtures found. Please check the text format.");
+                    return;
+                }
+
+                if (confirm(`Successfully extracted ${matchCount} matches from the text.\nDeploy directly to the database?`)) {
+                    await batch.commit();
+                    document.getElementById('bulk-fixtures-text').value = "";
+                    alert(`Deployed ${matchCount} fixtures successfully!`);
+                    await window.loadAllData();
+                }
+
+            } catch (error) {
+                alert("Error importing fixtures: " + error.message);
+            }
+        };
+
         window.quickAddPlayer = async () => {
             const name = document.getElementById("quick-add-name").value.trim();
             if(!name) return;
@@ -982,13 +1067,6 @@
             let gwDataPoints = { "GW1": 0, "GW2": 0, "GW3": 0, "GW4": 0 };
             let totalMatchPointsFound = 0;
             let pastPartnersList = new Set();
-                                    // --- MANUAL PARTNER OVERRIDE ---
-            if (playerId === "Ishaam") pastPartnersList.add("Leigh");
-            if (playerId === "Leigh") { 
-                pastPartnersList.add("Ishaam"); 
-            }
-            // -------------------------------
-            // -------------------------------
             
             // Capture the current partner straight from the roster even if a game hasn't been logged yet
             if(player.currentPartner && player.currentPartner !== "PROXY") {
@@ -1019,6 +1097,13 @@
                     }
                 }
             });
+
+            // --- MANUAL PARTNER OVERRIDE ---
+            if (playerId === "Ishaam") pastPartnersList.add("Leigh");
+            if (playerId === "Leigh") { 
+                pastPartnersList.add("Ishaam"); 
+            }
+            // -------------------------------
 
             // Set Partners History Text
             document.getElementById("modal-partners").innerText = "Linked Partners: " + (pastPartnersList.size > 0 ? Array.from(pastPartnersList).join(", ") : "None Recorded");
