@@ -679,7 +679,18 @@
 
                 const mSnapshot = await getDocs(collection(db, "matches"));
                 globalMatchesData = []; mSnapshot.forEach((doc) => globalMatchesData.push({ id: doc.id, ...doc.data() }));
-                globalMatchesData.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+                                // Smart sort: Orders by Round number, then by Court number
+                globalMatchesData.sort((a, b) => {
+                    const roundA = parseInt(String(a.round).replace(/\D/g, "")) || 0;
+                    const roundB = parseInt(String(b.round).replace(/\D/g, "")) || 0;
+                    if (roundA !== roundB) return roundA - roundB;
+                    
+                    const courtA = parseInt(String(a.court).replace(/\D/g, "")) || 0;
+                    const courtB = parseInt(String(b.court).replace(/\D/g, "")) || 0;
+                    if (courtA !== courtB) return courtA - courtB;
+                    
+                    return String(a.id).localeCompare(String(b.id));
+                });
 
                 window.renderLeaderboard(); window.renderMatches(); window.renderLiveTally(); window.populateAdminDropdowns();
             } catch (error) { console.error("Sync Failure:", error); }
