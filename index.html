@@ -512,8 +512,12 @@
                             <select id="active-gameweek" onchange="window.renderLiveTally()">
                                 <option value="GW1">Gameweek 1</option>
                                 <option value="GW2">Gameweek 2</option>
-                                <option value="GW3" selected>Gameweek 3</option>
-                                <option value="GW4">Gameweek 4</option>
+                                <option value="GW3">Gameweek 3</option>
+                                <option value="GW4" selected>Gameweek 4</option>
+                                <option value="GW5">Gameweek 5</option>
+                                <option value="GW6">Gameweek 6</option>
+                                <option value="GW7">Gameweek 7</option>
+                                <option value="GW8">Gameweek 8</option>
                             </select>
                         </div>
                         <button class="btn-warning" onclick="window.archiveTonightChampions()">🗄️ Archive Tonight's Champions</button>
@@ -530,7 +534,12 @@
                     <option value="ALL">Complete Record</option>
                     <option value="GW1">Gameweek 1</option>
                     <option value="GW2">Gameweek 2</option>
-                    <option value="GW3" selected>Gameweek 3</option>
+                    <option value="GW3">Gameweek 3</option>
+                    <option value="GW4" selected>Gameweek 4</option>
+                    <option value="GW5">Gameweek 5</option>
+                    <option value="GW6">Gameweek 6</option>
+                    <option value="GW7">Gameweek 7</option>
+                    <option value="GW8">Gameweek 8</option>
                 </select>
             </div>
             <div id="results-list"></div>
@@ -679,7 +688,8 @@
 
                 const mSnapshot = await getDocs(collection(db, "matches"));
                 globalMatchesData = []; mSnapshot.forEach((doc) => globalMatchesData.push({ id: doc.id, ...doc.data() }));
-                                // Smart sort: Orders by Round number, then by Court number
+                
+                // Smart sort: Orders by Round number, then by Court number
                 globalMatchesData.sort((a, b) => {
                     const roundA = parseInt(String(a.round).replace(/\D/g, "")) || 0;
                     const roundB = parseInt(String(b.round).replace(/\D/g, "")) || 0;
@@ -704,7 +714,7 @@
         };
 
         window.renderLiveTally = () => {
-            const activeGW = document.getElementById("active-gameweek") ? document.getElementById("active-gameweek").value : "GW3";
+            const activeGW = document.getElementById("active-gameweek") ? document.getElementById("active-gameweek").value : "GW4";
             let teamPoints = {};
 
             globalMatchesData.forEach(m => {
@@ -838,7 +848,7 @@
             else if (match.scoreB > match.scoreA) { bonusB += 2; }
             else { bonusA += 1; bonusB += 1; }
 
-            const gw = match.gameweek || "GW3";
+            const gw = match.gameweek || "GW4";
 
             try {
                 const batch = writeBatch(db);
