@@ -509,16 +509,17 @@
                     <div class="details-content">
                         <div class="form-group">
                             <label>Scope Context View (Gameweek)</label>
-                            <select id="active-gameweek" onchange="window.renderLiveTally()">
+                                                        <select id="active-gameweek" onchange="window.renderLiveTally()">
                                 <option value="GW1">Gameweek 1</option>
                                 <option value="GW2">Gameweek 2</option>
                                 <option value="GW3">Gameweek 3</option>
-                                <option value="GW4" selected>Gameweek 4</option>
-                                <option value="GW5">Gameweek 5</option>
+                                <option value="GW4">Gameweek 4</option>
+                                <option value="GW5" selected>Gameweek 5</option>
                                 <option value="GW6">Gameweek 6</option>
                                 <option value="GW7">Gameweek 7</option>
                                 <option value="GW8">Gameweek 8</option>
                             </select>
+
                         </div>
                         <button class="btn-warning" onclick="window.archiveTonightChampions()">🗄️ Archive Tonight's Champions</button>
                         <button class="btn-danger" style="margin-top:8px;" onclick="window.clearMatchesByStatus('pending')">Wipe Pending Fixtures</button>
