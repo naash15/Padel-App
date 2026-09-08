@@ -432,6 +432,18 @@
             </div>
         </div>
 
+        <!-- NEW: PUBLIC PAIRING REQUEST SYSTEM -->
+        <div class="card" id="free-agent-requests" style="border: 1px solid rgba(59, 130, 246, 0.2);">
+            <h2 style="color: var(--info);">🤝 Free Agent Pair Requests</h2>
+            <div class="form-group"><label>Who are you?</label><select id="req-my-name"></select></div>
+            <div class="form-group"><label>Requested Partner (Free Agents Only)</label><select id="req-partner"></select></div>
+            <div class="form-group"><label>For Gameweek</label><select id="req-gw"></select></div>
+            <button class="btn-action" onclick="window.submitPairingRequest()">Send Request to Admin</button>
+            
+            <div id="public-pending-requests" style="margin-top: 16px;"></div>
+            <div id="admin-pairing-requests" class="admin-section" style="display:none;"></div>
+        </div>
+
         <div class="card">
             <h2>🏆 Individual League Standings</h2>
             
@@ -509,7 +521,8 @@
                     <div class="details-content">
                         <div class="form-group">
                             <label>Scope Context View (Gameweek)</label>
-                            <select id="active-gameweek" onchange="window.renderLiveTally()">
+                            <!-- UPDATED to sync seamlessly -->
+                            <select id="active-gameweek" onchange="window.syncGameweeks(this.value)">
                                 <option value="GW1">Gameweek 1</option>
                                 <option value="GW2">Gameweek 2</option>
                                 <option value="GW3">Gameweek 3</option>
@@ -531,7 +544,8 @@
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <h2 style="margin:0;">📋 Official Scorecard Index</h2>
-                <select id="results-filter" onchange="window.renderMatches()" style="width:auto; padding:6px 10px; font-size:12px;">
+                <!-- UPDATED to sync seamlessly -->
+                <select id="results-filter" onchange="window.syncGameweeks(this.value)" style="width:auto; padding:6px 10px; font-size:12px;">
                     <option value="ALL">Complete Record</option>
                     <option value="GW1">Gameweek 1</option>
                     <option value="GW2">Gameweek 2</option>
@@ -552,6 +566,12 @@
         <div class="modal-content">
             <span class="close-btn" onclick="window.closeModal()">&times;</span>
             <h2 id="modal-name" style="margin-bottom:6px;">Historical Tracking</h2>
+            
+            <!-- NEW AI COACH PLACEHOLDER -->
+            <div id="ai-coach-summary" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 14px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: var(--primary); font-style: italic; font-weight: 500;">
+                🤖 AI Coach Strategy: Coming soon!
+            </div>
+
             <div id="modal-partners" style="font-size: 12px; color: var(--info); font-weight: 600; margin-bottom: 16px;"></div>
             <div style="width:100%; height:260px; position:relative;">
                 <canvas id="playerChart"></canvas>
@@ -589,6 +609,7 @@
         
         let globalPlayersData = []; 
         let globalMatchesData = [];
+        let globalRequestsData = [];
         let activeTeamsList = []; 
         let isAdminLoggedIn = false; 
         
@@ -680,17 +701,20 @@
 
         window.stopGlobalTimer = async () => { await setDoc(doc(db, "config", "timer"), { running: false }); };
 
-        // --- Core Data Load ---
+        // --- Core Data Load & Global Sync ---
+        window.syncGameweeks = (val) => {
+            if (val === "ALL") val = document.getElementById("active-gameweek").value;
+            document.getElementById("active-gameweek").value = val;
+            document.getElementById("results-filter").value = val;
+            window.renderLiveTally();
+            window.renderMatches();
+            window.populateDropdowns();
+        };
+
         const listenToGameweek = () => {
             onSnapshot(doc(db, "config", "settings"), (snapshot) => {
                 if (snapshot.exists() && snapshot.data().currentGW) {
-                    const active = snapshot.data().currentGW;
-                    document.getElementById("active-gameweek").value = active;
-                    document.getElementById("results-filter").value = active;
-                    
-                    // Instantly refresh the UI to match the database
-                    window.renderLiveTally();
-                    window.renderMatches();
+                    window.syncGameweeks(snapshot.data().currentGW);
                 }
             });
         };
@@ -703,6 +727,9 @@
 
                 const mSnapshot = await getDocs(collection(db, "matches"));
                 globalMatchesData = []; mSnapshot.forEach((doc) => globalMatchesData.push({ id: doc.id, ...doc.data() }));
+
+                const rSnapshot = await getDocs(collection(db, "pairing_requests"));
+                globalRequestsData = []; rSnapshot.forEach((doc) => globalRequestsData.push({ id: doc.id, ...doc.data() }));
                 
                 // Smart sort: Orders by Round number, then by Court number
                 globalMatchesData.sort((a, b) => {
@@ -717,7 +744,7 @@
                     return String(a.id).localeCompare(String(b.id));
                 });
 
-                window.renderLeaderboard(); window.renderMatches(); window.renderLiveTally(); window.populateAdminDropdowns();
+                window.renderLeaderboard(); window.renderRequests(); window.renderMatches(); window.renderLiveTally(); window.populateDropdowns();
             } catch (error) { console.error("Sync Failure:", error); }
         };
 
@@ -754,11 +781,30 @@
             const canvas = document.getElementById('liveNightChart');
             if(canvas) {
                 const ctx = canvas.getContext('2d');
+                
+                // NEW: Sleek Gradient & Rounded Borders for Bar Chart
+                const gradient = ctx.createLinearGradient(0, 0, 300, 0);
+                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
+                gradient.addColorStop(1, 'rgba(16, 185, 129, 1)');
+
                 if (liveNightChartInstance) liveNightChartInstance.destroy();
                 liveNightChartInstance = new Chart(ctx, {
                     type: 'bar',
-                    data: { labels: sortedLive.map(t => t.id), datasets: [{ label: 'Team Total', data: sortedLive.map(t => t.pts), backgroundColor: '#10b981' }] },
-                    options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' } }, y: { grid: { display: false } } } }
+                    data: { 
+                        labels: sortedLive.map(t => t.id), 
+                        datasets: [{ 
+                            label: 'Team Total', 
+                            data: sortedLive.map(t => t.pts), 
+                            backgroundColor: gradient,
+                            borderRadius: 6,
+                            borderWidth: 1,
+                            borderColor: 'rgba(16, 185, 129, 0.8)'
+                        }] 
+                    },
+                    options: { 
+                        indexAxis: 'y', responsive: true, plugins: { legend: { display: false } }, 
+                        scales: { x: { grid: { color: 'rgba(255,255,255,0.05)' } }, y: { grid: { display: false } } } 
+                    }
                 });
             }
         };
@@ -802,6 +848,26 @@
                 : "<p style='color:var(--text-muted); font-size:13px; margin:0;'>None active.</p>";
             
             document.getElementById("leaderboard-list").innerHTML = html;
+        };
+
+        window.renderRequests = () => {
+            let adminHtml = ""; let publicHtml = "";
+            globalRequestsData.filter(r => r.status === 'pending').forEach(r => {
+                publicHtml += `<div class="tag" style="background: rgba(59, 130, 246, 0.1); color: var(--info); border: 1px solid rgba(59, 130, 246, 0.2);">🕒 ${r.requester} & ${r.target} (${r.gameweek})</div>`;
+                adminHtml += `<div class="list-item" style="flex-wrap: wrap; margin-bottom: 6px;">
+                    <span style="font-size: 13px;"><b>${r.requester}</b> requests <b>${r.target}</b> (${r.gameweek})</span>
+                    <div style="display:flex; gap: 6px; margin-top: 8px; width: 100%;">
+                        <button class="btn-action" style="padding:6px; font-size:11px;" onclick="window.resolveRequest('${r.id}', 'approved')">Approve</button>
+                        <button class="btn-danger" style="padding:6px; font-size:11px;" onclick="window.resolveRequest('${r.id}', 'rejected')">Reject</button>
+                    </div>
+                </div>`;
+            });
+            
+            const pubContainer = document.getElementById("public-pending-requests");
+            if(pubContainer) pubContainer.innerHTML = publicHtml ? `<div style="font-size:12px; margin-bottom:8px; color:var(--text-muted); font-weight: 700; text-transform: uppercase;">Pending Approvals:</div>` + publicHtml : "";
+            
+            const adminContainer = document.getElementById("admin-pairing-requests");
+            if(adminContainer) adminContainer.innerHTML = adminHtml ? `<div style="margin-top:16px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px;"><strong style="color:var(--warning); font-size:13px; text-transform: uppercase; margin-bottom: 10px; display: block;">🚨 Admin Approval Required:</strong>${adminHtml}</div>` : "";
         };
 
         window.renderMatches = () => {
@@ -909,7 +975,43 @@
             }
         };
 
-        // NEW BULK IMPORT FUNCTION
+        // NEW: Free Agent Pairing Request Submission
+        window.submitPairingRequest = async () => {
+            const myName = document.getElementById("req-my-name").value;
+            const partner = document.getElementById("req-partner").value;
+            const gw = document.getElementById("req-gw").value;
+            
+            if(!myName || !partner || !gw) return alert("Please fill out all fields.");
+            if(myName === partner) return alert("You cannot pair with yourself!");
+            
+            const existing = globalRequestsData.find(r => r.status === 'pending' && (r.requester === myName || r.target === myName));
+            if(existing) return alert("You already have a pending pairing request. Please wait for it to be resolved by an Admin.");
+            
+            await setDoc(doc(db, "pairing_requests", `req_${Date.now()}`), {
+                requester: myName, target: partner, gameweek: gw, status: 'pending', timestamp: Date.now()
+            });
+            alert("Partnership request successfully submitted to Admin!");
+            await window.loadAllData();
+        };
+
+        // NEW: Free Agent Pairing Request Resolution
+        window.resolveRequest = async (reqId, action) => {
+            const req = globalRequestsData.find(r => r.id === reqId);
+            if(!req) return;
+            
+            if(confirm(`Are you sure you want to ${action.toUpperCase()} this request?`)) {
+                const batch = writeBatch(db);
+                batch.update(doc(db, "pairing_requests", reqId), { status: action });
+                
+                if (action === 'approved') {
+                    batch.update(doc(db, "players", req.requester), { currentPartner: req.target, isFreeAgent: false });
+                    batch.update(doc(db, "players", req.target), { currentPartner: req.requester, isFreeAgent: false });
+                }
+                await batch.commit();
+                await window.loadAllData();
+            }
+        };
+
         window.bulkImportFixtures = async () => {
             const rawText = document.getElementById('bulk-fixtures-text').value;
             if (!rawText.trim()) return alert("Please paste the schedule text first.");
@@ -1071,7 +1173,7 @@
             await window.loadAllData();
         };
 
-        window.populateAdminDropdowns = () => {
+        window.populateDropdowns = () => {
             let pOptions = '<option value="">-- Choose Node --</option><option value="PROXY">🥷 PROXY</option>';
             [...globalPlayersData].sort((a,b) => String(a.id).localeCompare(String(b.id))).forEach(p => { if(p.id !== "PROXY") pOptions += `<option value="${p.id}">${p.id}</option>`; });
             ['team-p1', 'team-p2', 'swap-new-player'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerHTML = pOptions; });
@@ -1079,6 +1181,17 @@
             let tOptions = '<option value="">-- Choose Team Struct --</option>';
             activeTeamsList.forEach((t, i) => { tOptions += `<option value="${i}">${t.name}</option>`; });
             ['fix-teamA', 'fix-teamB', 'swap-team-select'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerHTML = tOptions; });
+
+            // Free Agent Pairing Dropdowns Update
+            let faOptions = '<option value="">-- Choose Free Agent --</option>';
+            globalPlayersData.filter(p => p.isFreeAgent && p.id !== "PROXY").sort((a,b) => a.id.localeCompare(b.id)).forEach(p => { faOptions += `<option value="${p.id}">${p.id}</option>`; });
+            ['req-my-name', 'req-partner'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerHTML = faOptions; });
+
+            const activeGW = document.getElementById("active-gameweek").value;
+            const currentGWnum = parseInt(activeGW.replace("GW", "")) || 1;
+            let gwOptions = '<option value="">-- Select GW --</option>';
+            for(let i = currentGWnum; i <= 8; i++) { gwOptions += `<option value="GW${i}">Gameweek ${i}</option>`; }
+            if(document.getElementById("req-gw")) document.getElementById("req-gw").innerHTML = gwOptions;
         };
 
         onAuthStateChanged(auth, (user) => {
@@ -1108,7 +1221,9 @@
             document.getElementById("modal-name").innerText = `${player.id} Tracking`;
             document.getElementById("player-modal").style.display = "flex";
 
-            let gwDataPoints = { "GW1": 0, "GW2": 0, "GW3": 0, "GW4": 0 };
+            let gwDataPoints = {};
+            for(let i=1; i<=8; i++) gwDataPoints[`GW${i}`] = 0;
+
             let totalMatchPointsFound = 0;
             let pastPartnersList = new Set();
             
@@ -1142,29 +1257,33 @@
                 }
             });
 
-            // --- MANUAL PARTNER OVERRIDE ---
-            if (playerId === "Ishaam") pastPartnersList.add("Leigh");
-            if (playerId === "Leigh") { 
-                pastPartnersList.add("Ishaam"); 
-            }
-            // -------------------------------
-
             // Set Partners History Text
             document.getElementById("modal-partners").innerText = "Linked Partners: " + (pastPartnersList.size > 0 ? Array.from(pastPartnersList).join(", ") : "None Recorded");
 
-            // Reconstruct timeline allowing for pre-imported base points
+            // NEW: Dynamically build timeline mapping to the ACTIVE global gameweek
+            const activeGlobalGW = document.getElementById("active-gameweek").value;
+            const activeNum = parseInt(activeGlobalGW.replace("GW", "")) || 4;
+
             let basePoints = (player.totalScore || 0) - totalMatchPointsFound;
             let runningSum = basePoints;
-            let labelArr = ["Start", "GW1", "GW2", "GW3", "GW4"];
-            let dataArr = [
-                runningSum, 
-                runningSum += gwDataPoints["GW1"], 
-                runningSum += gwDataPoints["GW2"], 
-                runningSum += gwDataPoints["GW3"], 
-                runningSum += gwDataPoints["GW4"]
-            ];
+            let labelArr = ["Start"];
+            let dataArr = [runningSum];
+
+            // Only map out to the active gameweek to prevent future flatlines
+            for(let i = 1; i <= activeNum; i++) {
+                let gwStr = `GW${i}`;
+                runningSum += gwDataPoints[gwStr];
+                labelArr.push(gwStr);
+                dataArr.push(runningSum);
+            }
 
             const ctx = document.getElementById('playerChart').getContext('2d');
+            
+            // Premium Fill Gradient Integration
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
+            gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+
             if(modalChartInstance) modalChartInstance.destroy();
             modalChartInstance = new Chart(ctx, {
                 type: 'line',
@@ -1174,10 +1293,14 @@
                         label: 'Total Value Sequence',
                         data: dataArr,
                         borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        backgroundColor: gradient,
                         borderWidth: 3,
                         fill: true,
-                        tension: 0.2
+                        tension: 0.3, // Adds a smoother fluid curve
+                        pointBackgroundColor: '#10b981',
+                        pointBorderColor: '#0b0f19',
+                        pointRadius: 4,
+                        pointHoverRadius: 7
                     }]
                 },
                 options: {
