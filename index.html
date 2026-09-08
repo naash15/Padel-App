@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -432,17 +432,19 @@
             </div>
         </div>
 
-        <!-- NEW: PUBLIC PAIRING REQUEST SYSTEM -->
-        <div class="card" id="free-agent-requests" style="border: 1px solid rgba(59, 130, 246, 0.2);">
-            <h2 style="color: var(--info);">🤝 Free Agent Pair Requests</h2>
-            <div class="form-group"><label>Who are you?</label><select id="req-my-name"></select></div>
-            <div class="form-group"><label>Requested Partner (Free Agents Only)</label><select id="req-partner"></select></div>
-            <div class="form-group"><label>For Gameweek</label><select id="req-gw"></select></div>
-            <button class="btn-action" onclick="window.submitPairingRequest()">Send Request to Admin</button>
-            
-            <div id="public-pending-requests" style="margin-top: 16px;"></div>
-            <div id="admin-pairing-requests" class="admin-section" style="display:none;"></div>
-        </div>
+        <!-- UPDATED: Collapsible Dropdown Menu for Free Agent Requests -->
+        <details class="card" style="border: 1px solid rgba(59, 130, 246, 0.2); padding: 0; overflow: hidden;">
+            <summary style="background: rgba(59, 130, 246, 0.05);">🤝 Free Agent Partner Request Menu</summary>
+            <div class="details-content">
+                <div class="form-group"><label>Who are you?</label><select id="req-my-name"></select></div>
+                <div class="form-group"><label>Requested Partner (Free Agents Only)</label><select id="req-partner"></select></div>
+                <div class="form-group"><label>For Gameweek</label><select id="req-gw"></select></div>
+                <button class="btn-action" id="submit-req-btn">Send Request to Admin</button>
+                
+                <div id="public-pending-requests" style="margin-top: 16px;"></div>
+                <div id="admin-pairing-requests" class="admin-section" style="display:none;"></div>
+            </div>
+        </details>
 
         <div class="card">
             <h2>🏆 Individual League Standings</h2>
@@ -521,7 +523,6 @@
                     <div class="details-content">
                         <div class="form-group">
                             <label>Scope Context View (Gameweek)</label>
-                            <!-- UPDATED to sync seamlessly -->
                             <select id="active-gameweek" onchange="window.syncGameweeks(this.value)">
                                 <option value="GW1">Gameweek 1</option>
                                 <option value="GW2">Gameweek 2</option>
@@ -544,7 +545,6 @@
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <h2 style="margin:0;">📋 Official Scorecard Index</h2>
-                <!-- UPDATED to sync seamlessly -->
                 <select id="results-filter" onchange="window.syncGameweeks(this.value)" style="width:auto; padding:6px 10px; font-size:12px;">
                     <option value="ALL">Complete Record</option>
                     <option value="GW1">Gameweek 1</option>
@@ -567,7 +567,6 @@
             <span class="close-btn" onclick="window.closeModal()">&times;</span>
             <h2 id="modal-name" style="margin-bottom:6px;">Historical Tracking</h2>
             
-            <!-- NEW AI COACH PLACEHOLDER -->
             <div id="ai-coach-summary" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 14px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: var(--primary); font-style: italic; font-weight: 500;">
                 🤖 AI Coach Strategy: Coming soon!
             </div>
@@ -782,7 +781,6 @@
             if(canvas) {
                 const ctx = canvas.getContext('2d');
                 
-                // NEW: Sleek Gradient & Rounded Borders for Bar Chart
                 const gradient = ctx.createLinearGradient(0, 0, 300, 0);
                 gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
                 gradient.addColorStop(1, 'rgba(16, 185, 129, 1)');
@@ -975,40 +973,57 @@
             }
         };
 
-        // NEW: Free Agent Pairing Request Submission
+        // FIXED: Free Agent Pairing Request Submission with Listener Hook
         window.submitPairingRequest = async () => {
             const myName = document.getElementById("req-my-name").value;
             const partner = document.getElementById("req-partner").value;
             const gw = document.getElementById("req-gw").value;
             
-            if(!myName || !partner || !gw) return alert("Please fill out all fields.");
-            if(myName === partner) return alert("You cannot pair with yourself!");
+            if(!myName || !partner || !gw) {
+                alert("Please select your name, a partner, and a gameweek.");
+                return;
+            }
+            if(myName === partner) {
+                alert("You cannot pair with yourself!");
+                return;
+            }
             
             const existing = globalRequestsData.find(r => r.status === 'pending' && (r.requester === myName || r.target === myName));
-            if(existing) return alert("You already have a pending pairing request. Please wait for it to be resolved by an Admin.");
+            if(existing) {
+                alert("You already have a pending pairing request. Please wait for it to be resolved.");
+                return;
+            }
             
-            await setDoc(doc(db, "pairing_requests", `req_${Date.now()}`), {
-                requester: myName, target: partner, gameweek: gw, status: 'pending', timestamp: Date.now()
-            });
-            alert("Partnership request successfully submitted to Admin!");
-            await window.loadAllData();
+            try {
+                await setDoc(doc(db, "pairing_requests", `req_${Date.now()}`), {
+                    requester: myName, target: partner, gameweek: gw, status: 'pending', timestamp: Date.now()
+                });
+                alert("Partnership request successfully submitted to Admin!");
+                document.getElementById("req-partner").value = "";
+                await window.loadAllData();
+            } catch (err) {
+                alert("Failed to submit request: " + err.message);
+            }
         };
 
-        // NEW: Free Agent Pairing Request Resolution
         window.resolveRequest = async (reqId, action) => {
             const req = globalRequestsData.find(r => r.id === reqId);
             if(!req) return;
             
             if(confirm(`Are you sure you want to ${action.toUpperCase()} this request?`)) {
-                const batch = writeBatch(db);
-                batch.update(doc(db, "pairing_requests", reqId), { status: action });
-                
-                if (action === 'approved') {
-                    batch.update(doc(db, "players", req.requester), { currentPartner: req.target, isFreeAgent: false });
-                    batch.update(doc(db, "players", req.target), { currentPartner: req.requester, isFreeAgent: false });
+                try {
+                    const batch = writeBatch(db);
+                    batch.update(doc(db, "pairing_requests", reqId), { status: action });
+                    
+                    if (action === 'approved') {
+                        batch.update(doc(db, "players", req.requester), { currentPartner: req.target, isFreeAgent: false });
+                        batch.update(doc(db, "players", req.target), { currentPartner: req.requester, isFreeAgent: false });
+                    }
+                    await batch.commit();
+                    await window.loadAllData();
+                } catch(err) {
+                    alert("Error resolving request: " + err.message);
                 }
-                await batch.commit();
-                await window.loadAllData();
             }
         };
 
@@ -1028,27 +1043,24 @@
                     line = line.trim();
                     if (!line) continue;
 
-                    // Extract Round Number from strings like "20:10 - 20:22 | Round 1"
                     const roundMatch = line.match(/\|\s*(Round\s+\d+)/i) || line.match(/^(Round\s+\d+)/i);
                     if (roundMatch) {
                         currentRound = roundMatch[1];
                         continue;
                     }
 
-                    // Extract Court and Teams from strings like "Court 1: Figo & Aneeqah vs Luke & Darren (#2 vs #3 Heavyweight Clash)"
                     if (line.toLowerCase().startsWith("court")) {
                         const courtSplit = line.split(':');
                         if (courtSplit.length < 2) continue;
 
-                        const courtStr = courtSplit[0].trim(); // Output: "Court 1"
-                        
+                        const courtStr = courtSplit[0].trim();
                         let teamsPart = courtSplit.slice(1).join(':').trim(); 
-                        teamsPart = teamsPart.split('(')[0].trim(); // Output: "Figo & Aneeqah vs Luke & Darren"
+                        teamsPart = teamsPart.split('(')[0].trim();
 
                         const vsSplit = teamsPart.split(/\s+vs\s+/i);
                         if (vsSplit.length === 2) {
-                            const tA = vsSplit[0].split('&').map(s => s.trim()); // Output: ["Figo", "Aneeqah"]
-                            const tB = vsSplit[1].split('&').map(s => s.trim()); // Output: ["Luke", "Darren"]
+                            const tA = vsSplit[0].split('&').map(s => s.trim());
+                            const tB = vsSplit[1].split('&').map(s => s.trim());
 
                             const matchId = `match_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
                             const matchRef = doc(db, "matches", matchId);
@@ -1182,7 +1194,6 @@
             activeTeamsList.forEach((t, i) => { tOptions += `<option value="${i}">${t.name}</option>`; });
             ['fix-teamA', 'fix-teamB', 'swap-team-select'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerHTML = tOptions; });
 
-            // Free Agent Pairing Dropdowns Update
             let faOptions = '<option value="">-- Choose Free Agent --</option>';
             globalPlayersData.filter(p => p.isFreeAgent && p.id !== "PROXY").sort((a,b) => a.id.localeCompare(b.id)).forEach(p => { faOptions += `<option value="${p.id}">${p.id}</option>`; });
             ['req-my-name', 'req-partner'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerHTML = faOptions; });
@@ -1197,10 +1208,8 @@
         onAuthStateChanged(auth, (user) => {
             isAdminLoggedIn = !!user;
             
-            // Toggle generic admin sections
             document.querySelectorAll('.admin-section').forEach(s => s.style.display = user ? 'block' : 'none');
             
-            // Flex layout for the new quick-add bar on leaderboard
             const quickAddZone = document.getElementById("quick-leaderboard-controls");
             if (quickAddZone) quickAddZone.style.display = user ? 'flex' : 'none';
 
@@ -1211,6 +1220,14 @@
 
         window.loginAdmin = () => signInWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("password").value);
         window.logoutAdmin = () => signOut(auth);
+
+        // --- Safe Event Listener Wiring ---
+        document.addEventListener("DOMContentLoaded", () => {
+            const submitBtn = document.getElementById("submit-req-btn");
+            if (submitBtn) {
+                submitBtn.addEventListener("click", window.submitPairingRequest);
+            }
+        });
 
         // --- Player Profile Modal Analytics ---
         let modalChartInstance = null;
@@ -1227,7 +1244,6 @@
             let totalMatchPointsFound = 0;
             let pastPartnersList = new Set();
             
-            // Capture the current partner straight from the roster even if a game hasn't been logged yet
             if(player.currentPartner && player.currentPartner !== "PROXY") {
                 pastPartnersList.add(player.currentPartner);
             }
@@ -1236,11 +1252,9 @@
                 const inA = m.teamA.includes(playerId);
                 const inB = m.teamB.includes(playerId);
                 if(inA || inB) {
-                    // Collect Partners from match history
                     if(inA) m.teamA.forEach(p => { if(p !== playerId && p !== "PROXY") pastPartnersList.add(p); });
                     if(inB) m.teamB.forEach(p => { if(p !== playerId && p !== "PROXY") pastPartnersList.add(p); });
 
-                    // Sum Confirmed Game Points
                     if(m.status === "confirmed") {
                         const score = inA ? m.scoreA : m.scoreB;
                         const opScore = inA ? m.scoreB : m.scoreA;
@@ -1257,10 +1271,8 @@
                 }
             });
 
-            // Set Partners History Text
             document.getElementById("modal-partners").innerText = "Linked Partners: " + (pastPartnersList.size > 0 ? Array.from(pastPartnersList).join(", ") : "None Recorded");
 
-            // NEW: Dynamically build timeline mapping to the ACTIVE global gameweek
             const activeGlobalGW = document.getElementById("active-gameweek").value;
             const activeNum = parseInt(activeGlobalGW.replace("GW", "")) || 4;
 
@@ -1269,7 +1281,6 @@
             let labelArr = ["Start"];
             let dataArr = [runningSum];
 
-            // Only map out to the active gameweek to prevent future flatlines
             for(let i = 1; i <= activeNum; i++) {
                 let gwStr = `GW${i}`;
                 runningSum += gwDataPoints[gwStr];
@@ -1279,7 +1290,6 @@
 
             const ctx = document.getElementById('playerChart').getContext('2d');
             
-            // Premium Fill Gradient Integration
             const gradient = ctx.createLinearGradient(0, 0, 0, 300);
             gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
             gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
@@ -1296,7 +1306,7 @@
                         backgroundColor: gradient,
                         borderWidth: 3,
                         fill: true,
-                        tension: 0.3, // Adds a smoother fluid curve
+                        tension: 0.3,
                         pointBackgroundColor: '#10b981',
                         pointBorderColor: '#0b0f19',
                         pointRadius: 4,
