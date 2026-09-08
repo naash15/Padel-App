@@ -509,18 +509,18 @@
                     <div class="details-content">
                         <div class="form-group">
                             <label>Scope Context View (Gameweek)</label>
-                                                        <select id="active-gameweek" onchange="window.renderLiveTally()">
+                            <select id="active-gameweek" onchange="window.renderLiveTally()">
                                 <option value="GW1">Gameweek 1</option>
                                 <option value="GW2">Gameweek 2</option>
                                 <option value="GW3">Gameweek 3</option>
                                 <option value="GW4">Gameweek 4</option>
                                 <option value="GW5">Gameweek 5</option>
-                                <option value="GW6" selected>Gameweek 6</option>
+                                <option value="GW6">Gameweek 6</option>
                                 <option value="GW7">Gameweek 7</option>
                                 <option value="GW8">Gameweek 8</option>
                             </select>
-
                         </div>
+                        <button class="btn-action" style="margin-bottom:8px; margin-top:8px;" onclick="window.updateGlobalGameweek()">🌍 Lock in Current Gameweek for All Users</button>
                         <button class="btn-warning" onclick="window.archiveTonightChampions()">🗄️ Archive Tonight's Champions</button>
                         <button class="btn-danger" style="margin-top:8px;" onclick="window.clearMatchesByStatus('pending')">Wipe Pending Fixtures</button>
                     </div>
@@ -536,7 +536,7 @@
                     <option value="GW1">Gameweek 1</option>
                     <option value="GW2">Gameweek 2</option>
                     <option value="GW3">Gameweek 3</option>
-                    <option value="GW4" selected>Gameweek 4</option>
+                    <option value="GW4">Gameweek 4</option>
                     <option value="GW5">Gameweek 5</option>
                     <option value="GW6">Gameweek 6</option>
                     <option value="GW7">Gameweek 7</option>
@@ -681,6 +681,20 @@
         window.stopGlobalTimer = async () => { await setDoc(doc(db, "config", "timer"), { running: false }); };
 
         // --- Core Data Load ---
+        const listenToGameweek = () => {
+            onSnapshot(doc(db, "config", "settings"), (snapshot) => {
+                if (snapshot.exists() && snapshot.data().currentGW) {
+                    const active = snapshot.data().currentGW;
+                    document.getElementById("active-gameweek").value = active;
+                    document.getElementById("results-filter").value = active;
+                    
+                    // Instantly refresh the UI to match the database
+                    window.renderLiveTally();
+                    window.renderMatches();
+                }
+            });
+        };
+
         window.loadAllData = async () => {
             try {
                 const pSnapshot = await getDocs(collection(db, "players"));
@@ -887,6 +901,14 @@
 
         // --- Admin Controls ---
         
+        window.updateGlobalGameweek = async () => {
+            const selectedGW = document.getElementById("active-gameweek").value;
+            if(confirm(`Set the live app to ${selectedGW} for everyone?`)) {
+                await setDoc(doc(db, "config", "settings"), { currentGW: selectedGW }, { merge: true });
+                alert("Gameweek successfully synced to all devices!");
+            }
+        };
+
         // NEW BULK IMPORT FUNCTION
         window.bulkImportFixtures = async () => {
             const rawText = document.getElementById('bulk-fixtures-text').value;
@@ -1172,7 +1194,7 @@
 
         window.closeModal = () => document.getElementById("player-modal").style.display = "none";
 
-        listenToTimer(); window.loadAllData();
+        listenToTimer(); listenToGameweek(); window.loadAllData();
     </script>
 </body>
 </html>
